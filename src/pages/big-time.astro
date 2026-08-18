@@ -1,0 +1,384 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="Big Time - Six Deep Studios">
+	<div class="page-shell">
+		<header class="topbar">
+			<div class="brand-block">
+				<a href="/" class="logo-link">
+					<div class="brand-mark">
+						<span class="brand-text-mark">6D</span>
+						<span class="brand-text-mark">STUDIOS</span>
+					</div>
+				</a>
+			</div>
+			<nav class="nav" aria-label="Main navigation">
+				<a href="/">Home</a>
+				<a href="/">About</a>
+				<a href="/">Steam</a>
+			</nav>
+		</header>
+
+		<main id="game">
+			<section class="game-hero">
+				<div class="hero-copy">
+					<p class="eyebrow">Featured game</p>
+					<h1>Big Time</h1>
+					<p class="lede">
+						A physics-based superhero fighting game where the world itself becomes your weapon. 
+						Battle in fully destructible environments where every object can be grabbed, thrown, 
+						and demolished in real-time.
+					</p>
+					<div class="cta-row">
+						<a class="primary-button" href="https://store.steampowered.com/" target="_blank" rel="noreferrer">
+							Wishlist on Steam
+						</a>
+						<a class="secondary-button" href="/">Back to home</a>
+					</div>
+				</div>
+			</section>
+
+			<section class="game-features">
+				<div class="section-heading">
+					<p class="eyebrow">Game features</p>
+					<h2>Destruction at your fingertips</h2>
+				</div>
+
+				<div class="features-grid">
+					<article class="feature-card">
+						<div class="feature-icon">⚡</div>
+						<h3>Physics-Based Combat</h3>
+						<p>
+							Every punch, kick, and collision is simulated in real-time. Master momentum, 
+							weight, and impact to dominate your opponent.
+						</p>
+					</article>
+
+					<article class="feature-card">
+						<div class="feature-icon">🏢</div>
+						<h3>Destructible Worlds</h3>
+						<p>
+							Nothing is off-limits. Buildings crumble, streets crack, and entire environments 
+							reshape based on your combat actions.
+						</p>
+					</article>
+
+					<article class="feature-card">
+						<div class="feature-icon">💥</div>
+						<h3>Dynamic Weapons</h3>
+						<p>
+							Grab anything in the environment—vehicles, debris, signs—and use them as weapons 
+							in dynamic, creative ways.
+						</p>
+					</article>
+
+					<article class="feature-card">
+						<div class="feature-icon">🦸</div>
+						<h3>Superhero Combat</h3>
+						<p>
+							Face off against another superpowered combatant. Each fight is unique with emergent 
+							gameplay that rewards mastery and creativity.
+						</p>
+					</article>
+				</div>
+			</section>
+
+			<section class="game-specs">
+				<div class="section-heading">
+					<p class="eyebrow">Status</p>
+					<h2>Coming soon</h2>
+				</div>
+
+				<div class="specs-grid">
+					<div class="spec-item">
+						<span class="spec-label">Development</span>
+						<span class="spec-value">Prototype phase</span>
+					</div>
+					<div class="spec-item">
+						<span class="spec-label">Platform</span>
+						<span class="spec-value">PC (Steam)</span>
+					</div>
+					<div class="spec-item">
+						<span class="spec-label">Genre</span>
+						<span class="spec-value">Fighting / Physics</span>
+					</div>
+					<div class="spec-item">
+						<span class="spec-label">Release</span>
+						<span class="spec-value">TBD</span>
+					</div>
+				</div>
+			</section>
+		</main>
+	</div>
+</Layout>
+
+<style>
+	.page-shell {
+		max-width: 1200px;
+		margin: 0 auto;
+		padding: 32px 24px 72px;
+	}
+
+	.topbar {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		padding: 8px 0 24px;
+	}
+
+	.brand-block {
+		display: inline-flex;
+		align-items: center;
+		gap: 12px;
+	}
+
+	.brand-mark {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		width: 80px;
+		height: 80px;
+		border-radius: 12px;
+		background: #0a1118;
+		border: 2px solid rgba(95, 195, 255, 0.4);
+		color: #fff;
+		font-weight: 900;
+		line-height: 0.9;
+		gap: 4px;
+		text-align: center;
+	}
+
+	.brand-text-mark {
+		display: block;
+		text-transform: uppercase;
+	}
+
+	.brand-text-mark:first-child {
+		font-size: 2.4rem;
+		font-weight: 900;
+		letter-spacing: -0.05em;
+	}
+
+	.brand-text-mark:last-child {
+		font-size: 0.55rem;
+		letter-spacing: 0.12em;
+		font-weight: 900;
+	}
+
+	.logo-link {
+		text-decoration: none;
+		display: flex;
+		align-items: center;
+	}
+
+	.back-link:hover {
+		color: var(--text);
+	}
+
+	.nav {
+		display: flex;
+		gap: 28px;
+		font-size: 0.95rem;
+		color: var(--muted);
+	}
+
+	.nav a {
+		transition: color 0.2s ease;
+	}
+
+	.nav a:hover {
+		color: var(--text);
+	}
+
+	.game-hero {
+		display: grid;
+		grid-template-columns: 1fr;
+		align-items: center;
+		gap: 36px;
+		padding: 36px 0 48px;
+	}
+
+	.eyebrow {
+		margin: 0 0 12px;
+		font-size: 0.75rem;
+		letter-spacing: 0.16em;
+		text-transform: uppercase;
+		color: var(--secondary);
+	}
+
+	.game-hero h1 {
+		margin: 0;
+		font-size: clamp(2.9rem, 6vw, 5.2rem);
+		line-height: 0.95;
+		letter-spacing: -0.06em;
+	}
+
+	.lede {
+		max-width: 630px;
+		margin-top: 20px;
+		font-size: 1.08rem;
+		color: var(--muted);
+	}
+
+	.cta-row {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 16px;
+		margin-top: 28px;
+	}
+
+	.primary-button,
+	.secondary-button {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		min-height: 48px;
+		padding: 0 20px;
+		border-radius: 999px;
+		font-weight: 700;
+		text-decoration: none;
+		transition:
+			transform 0.2s ease,
+			box-shadow 0.2s ease,
+			border-color 0.2s ease;
+	}
+
+	.primary-button {
+		background: linear-gradient(135deg, var(--accent), #ffc968);
+		color: #141a21;
+		box-shadow: 0 18px 30px rgba(247, 179, 43, 0.25);
+	}
+
+	.secondary-button {
+		border: 1px solid rgba(154, 199, 226, 0.26);
+		background: rgba(255, 255, 255, 0.02);
+		color: var(--text);
+	}
+
+	.primary-button:hover,
+	.secondary-button:hover {
+		transform: translateY(-1px);
+	}
+
+	.section-heading {
+		margin-bottom: 32px;
+	}
+
+	.section-heading h2 {
+		margin: 0;
+		font-size: clamp(2rem, 4vw, 3rem);
+		letter-spacing: -0.05em;
+	}
+
+	.game-features,
+	.game-specs {
+		margin-top: 60px;
+		padding-top: 32px;
+		border-top: 1px solid var(--line);
+	}
+
+	.features-grid {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 24px;
+	}
+
+	.feature-card {
+		padding: 24px 20px;
+		border: 1px solid var(--line);
+		border-radius: 22px;
+		background: rgba(10, 18, 26, 0.75);
+		transition: background 0.2s ease, border-color 0.2s ease;
+	}
+
+	.feature-card:hover {
+		background: rgba(10, 18, 26, 0.95);
+		border-color: rgba(114, 212, 255, 0.3);
+	}
+
+	.feature-icon {
+		display: grid;
+		place-items: center;
+		width: 52px;
+		height: 52px;
+		margin-bottom: 18px;
+		border-radius: 50%;
+		background: linear-gradient(135deg, rgba(114, 212, 255, 0.28), rgba(247, 179, 43, 0.24));
+		font-size: 1.8rem;
+	}
+
+	.feature-card h3 {
+		margin: 0 0 10px;
+		font-size: 1.2rem;
+	}
+
+	.feature-card p {
+		margin: 0;
+		color: var(--muted);
+		line-height: 1.5;
+	}
+
+	.specs-grid {
+		display: grid;
+		grid-template-columns: repeat(4, minmax(0, 1fr));
+		gap: 16px;
+	}
+
+	.spec-item {
+		display: flex;
+		flex-direction: column;
+		padding: 18px 16px;
+		border: 1px solid var(--line);
+		border-radius: 18px;
+		background: rgba(9, 17, 24, 0.5);
+		backdrop-filter: blur(10px);
+	}
+
+	.spec-label {
+		font-size: 0.75rem;
+		letter-spacing: 0.16em;
+		text-transform: uppercase;
+		color: var(--secondary);
+		margin-bottom: 6px;
+	}
+
+	.spec-value {
+		font-size: 1rem;
+		font-weight: 700;
+		color: var(--text);
+	}
+
+	@media (max-width: 900px) {
+		.features-grid {
+			grid-template-columns: 1fr;
+		}
+
+		.specs-grid {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+		}
+	}
+
+	@media (max-width: 620px) {
+		.page-shell {
+			padding-left: 18px;
+			padding-right: 18px;
+		}
+
+		.topbar {
+			flex-direction: column;
+			align-items: flex-start;
+			gap: 16px;
+		}
+
+		.nav {
+			gap: 16px;
+			flex-wrap: wrap;
+		}
+
+		.specs-grid {
+			grid-template-columns: 1fr;
+		}
+	}
+</style>
