@@ -8,10 +8,7 @@ import CraneGame3D from '../components/CraneGame3D.astro';
 		<header class="topbar">
 			<div class="brand-block">
 				<a href="/" class="logo-link">
-					<div class="brand-mark">
-						<span class="brand-text-mark">6D</span>
-						<span class="brand-text-mark">STUDIOS</span>
-					</div>
+					<img class="brand-mark" src="/logo.svg" alt="Six Deep Studios" width="80" height="80" />
 				</a>
 			</div>
 			<nav class="nav" aria-label="Main navigation">
@@ -57,37 +54,9 @@ import CraneGame3D from '../components/CraneGame3D.astro';
 	}
 
 	.brand-mark {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
+		display: block;
 		width: 80px;
 		height: 80px;
-		border-radius: 12px;
-		background: #0a1118;
-		border: 2px solid rgba(95, 195, 255, 0.4);
-		color: #fff;
-		font-weight: 900;
-		line-height: 0.9;
-		gap: 4px;
-		text-align: center;
-	}
-
-	.brand-text-mark {
-		display: block;
-		text-transform: uppercase;
-	}
-
-	.brand-text-mark:first-child {
-		font-size: 2.4rem;
-		font-weight: 900;
-		letter-spacing: -0.05em;
-	}
-
-	.brand-text-mark:last-child {
-		font-size: 0.55rem;
-		letter-spacing: 0.12em;
-		font-weight: 900;
 	}
 
 	.logo-link {
