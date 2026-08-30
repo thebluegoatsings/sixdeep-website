@@ -12,6 +12,13 @@
     "astro": "astro"
   },
   "dependencies": {
-    "astro": "^7.2.2"
+    "astro": "^7.2.2",
+    "box3d.js": "^0.1.1",
+    "matter-js": "^0.20.0",
+    "three": "^0.185.1"
+  },
+  "devDependencies": {
+    "@types/matter-js": "^0.20.2",
+    "@types/three": "^0.185.4"
   }
 }
