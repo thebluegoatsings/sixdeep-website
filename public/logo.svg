@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <rect x="4" y="4" width="120" height="120" rx="20" fill="#0a1118" stroke="#5fc3ff" stroke-width="4"/>
+  <g fill="#ffffff" font-family="Arial, 'Segoe UI', sans-serif" font-weight="900" text-anchor="middle">
+    <text x="46" y="76" font-size="50">6</text>
+    <text x="82" y="76" font-size="50">D</text>
+    <text x="64" y="106" font-size="16" letter-spacing="2" font-weight="700">STUDIOS</text>
+  </g>
+</svg>

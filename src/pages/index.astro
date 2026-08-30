@@ -1,5 +1,6 @@
 ---
 import Layout from '../layouts/Layout.astro';
+import CraneGame from '../components/CraneGame.astro';
 ---
 
 <Layout title="Home">
@@ -14,6 +15,7 @@ import Layout from '../layouts/Layout.astro';
 			<nav class="nav" aria-label="Main navigation">
 				<a href="#home">Home</a>
 				<a href="/big-time">Big Time</a>
+				<a href="#play">Play demo</a>
 				<a href="#about">About</a>
 				<a href="#steam">Steam</a>
 			</nav>
@@ -64,6 +66,17 @@ import Layout from '../layouts/Layout.astro';
 						<a class="secondary-button" href="/big-time">Learn more</a>
 					</div>
 				</article>
+			</section>
+
+			<section id="play" class="play-section">
+				<div class="section-heading">
+					<p class="eyebrow">Playable teaser</p>
+					<h2>Wreck the wall</h2>
+				</div>
+				<CraneGame />
+				<div class="play-cta">
+					<a class="secondary-button" href="/play-3d">Try the 3D prototype</a>
+				</div>
 			</section>
 
 			<section id="about" class="about-section">
@@ -312,10 +325,15 @@ import Layout from '../layouts/Layout.astro';
 
 	.games-section,
 	.about-section,
-	.steam-panel {
+	.steam-panel,
+	.play-section {
 		margin-top: 60px;
 		padding-top: 32px;
 		border-top: 1px solid var(--line);
+	}
+
+	.play-cta {
+		margin-top: 24px;
 	}
 
 	.game-feature {

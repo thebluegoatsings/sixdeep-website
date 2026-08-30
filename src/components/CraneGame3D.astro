@@ -1,0 +1,675 @@
+---
+// Interactive 3D wrecking-ball mini-game — a Box3D physics prototype.
+// Physics: box3d.js (Box3D WASM). Rendering: three.js.
+---
+
+<div class="crane-game3d" id="crane-game3d">
+	<div class="game-head">
+		<p class="game-copy">
+			Rotate the crane with A and D, and raise or lower the ball with W and S. Topple every
+			box to wreck the wall. This prototype runs on Box3D + three.js.
+		</p>
+		<div class="game-ui">
+			<div class="score" role="status" aria-live="polite">
+				<span class="score-value"><span id="crane3d-count">0</span>/<span id="crane3d-total">0</span></span>
+				<span class="score-label">boxes down</span>
+			</div>
+			<button class="reset-button" id="crane3d-reset" type="button">Reset</button>
+		</div>
+	</div>
+
+	<div class="game-stage">
+		<canvas id="crane3d-canvas" aria-label="Interactive 3D wrecking ball game"></canvas>
+		<p class="stage-hint" id="crane3d-hint">A/D rotate the crane &middot; W/S raise &amp; lower</p>
+		<p class="stage-error" id="crane3d-error" hidden></p>
+	</div>
+</div>
+
+<script>
+	import * as THREE from 'three';
+	import Box3D from 'box3d.js/inline';
+	import type { Box3DModule, b3BodyId, b3Capsule, b3Quat, b3Vec3 } from 'box3d.js/inline';
+
+	const canvas = document.getElementById('crane3d-canvas') as HTMLCanvasElement;
+	const countEl = document.getElementById('crane3d-count') as HTMLElement;
+	const totalEl = document.getElementById('crane3d-total') as HTMLElement;
+	const resetBtn = document.getElementById('crane3d-reset') as HTMLButtonElement;
+	const hintEl = document.getElementById('crane3d-hint') as HTMLElement;
+	const errorEl = document.getElementById('crane3d-error') as HTMLElement;
+
+	// ---- Scene constants (metres, +Y up) ----
+	const TOWER_X = -4;
+	const TOWER_Z = 0;
+	const JIB_Y = 9; // tower / jib height
+	const JIB_LENGTH = 4; // jib tip distance from the tower centre
+	const ANCHOR_Y_DEFAULT = 8;
+	const ANCHOR_Y_MIN = 5.5;
+	const ANCHOR_Y_MAX = 9;
+	const BALL_RADIUS = 1.1;
+	const LINK_EXTENT = 0.22; // half-length of each chain link
+	const LINK_RADIUS = 0.09;
+	const LINK_COUNT = 10;
+	const CRANE_START_ANGLE = -Math.PI / 2; // jib points -Z at rest, so the ball hangs opposite the wall
+	const WALL_CX = 2; // centre of the box wall along X
+	const WALL_Z = 3; // the wall is a vertical plane at this Z, close to the swing
+	const BOX_HALF = 0.24; // half-extent of each wall box
+	const BOX_SPACING = 0.5; // centre-to-centre spacing of the boxes
+	const WALL_COLS = 14; // boxes across the wall
+	const WALL_ROWS = 14; // boxes up the wall
+	const ROTATE_SPEED = 1.4; // rad/s
+	const RAISE_SPEED = 2.5; // m/s
+
+	let anchorY = ANCHOR_Y_DEFAULT;
+	let craneAngle = CRANE_START_ANGLE; // ball starts on the opposite side of the crane
+
+	function anchorPosition(): { x: number; y: number; z: number } {
+		return {
+			x: TOWER_X + JIB_LENGTH * Math.cos(craneAngle),
+			y: anchorY,
+			z: TOWER_Z + JIB_LENGTH * Math.sin(craneAngle),
+		};
+	}
+
+	// Bake the logo (public/logo.svg) onto a steel background matching the wall
+	// aspect, so each box's front face can show its slice of the logo.
+	async function loadLogoTexture(cols: number, rows: number): Promise<THREE.CanvasTexture> {
+		const img = new Image();
+		img.src = '/logo.svg';
+		await img.decode();
+
+		const texW = 1024;
+		const texH = Math.max(1, Math.round((texW * rows) / cols));
+		const canvas = document.createElement('canvas');
+		canvas.width = texW;
+		canvas.height = texH;
+		const ctx = canvas.getContext('2d');
+		if (!ctx) throw new Error('no 2d context');
+
+		// Steel background so the texture blends with the plain box sides.
+		ctx.fillStyle = '#d7e6ef';
+		ctx.fillRect(0, 0, texW, texH);
+
+		// Centre the square badge, letterboxed to keep its aspect.
+		const size = Math.min(texW, texH);
+		ctx.drawImage(img, (texW - size) / 2, (texH - size) / 2, size, size);
+
+		const texture = new THREE.CanvasTexture(canvas);
+		texture.colorSpace = THREE.SRGBColorSpace;
+		texture.minFilter = THREE.LinearFilter;
+		texture.magFilter = THREE.LinearFilter;
+		texture.wrapS = THREE.ClampToEdgeWrapping;
+		texture.wrapT = THREE.ClampToEdgeWrapping;
+		return texture;
+	}
+
+	async function main() {
+		let b3: Box3DModule;
+		try {
+			b3 = await Box3D();
+		} catch (err) {
+			errorEl.hidden = false;
+			errorEl.textContent = 'Failed to load the Box3D physics engine.';
+			return;
+		}
+
+		// ---- Renderer / scene / camera ----
+		const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+		renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+		renderer.shadowMap.enabled = true;
+		renderer.shadowMap.type = THREE.PCFShadowMap;
+
+		const scene = new THREE.Scene();
+		scene.background = new THREE.Color(0x0a1722);
+		scene.fog = new THREE.Fog(0x0a1722, 24, 70);
+
+		const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 200);
+		camera.position.set(12, 7, 14);
+		camera.lookAt(0.5, 3, 0);
+
+		scene.add(new THREE.HemisphereLight(0xbdd8ee, 0x0e1f2c, 0.9));
+		const sun = new THREE.DirectionalLight(0xffe08a, 1.8);
+		sun.position.set(12, 18, 10);
+		sun.castShadow = true;
+		sun.shadow.mapSize.set(2048, 2048);
+		sun.shadow.camera.left = -20;
+		sun.shadow.camera.right = 20;
+		sun.shadow.camera.top = 20;
+		sun.shadow.camera.bottom = -20;
+		sun.shadow.camera.near = 0.5;
+		sun.shadow.camera.far = 60;
+		scene.add(sun);
+
+		const groundMesh = new THREE.Mesh(
+			new THREE.PlaneGeometry(60, 40),
+			new THREE.MeshStandardMaterial({ color: 0x0e1f2c, roughness: 0.95 }),
+		);
+		groundMesh.rotation.x = -Math.PI / 2;
+		groundMesh.receiveShadow = true;
+		scene.add(groundMesh);
+
+		// ---- Crane (visual) ----
+		const steelMat = new THREE.MeshStandardMaterial({ color: 0xd7e6ef, roughness: 0.4, metalness: 0.6 });
+		const accentMat = new THREE.MeshStandardMaterial({ color: 0xe8b21a, roughness: 0.5, metalness: 0.3 });
+
+		const towerMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.6, JIB_Y, 16), steelMat);
+		towerMesh.position.set(TOWER_X, JIB_Y / 2, TOWER_Z);
+		towerMesh.castShadow = true;
+		towerMesh.receiveShadow = true;
+		scene.add(towerMesh);
+
+		const jibGroup = new THREE.Group();
+		jibGroup.position.set(TOWER_X, JIB_Y, TOWER_Z);
+		scene.add(jibGroup);
+
+		const jibBeam = new THREE.Mesh(new THREE.BoxGeometry(JIB_LENGTH, 0.35, 0.35), steelMat);
+		jibBeam.position.set(JIB_LENGTH / 2, 0, 0);
+		jibBeam.castShadow = true;
+		jibGroup.add(jibBeam);
+
+		const counterJib = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.35, 0.35), steelMat);
+		counterJib.position.set(-0.8, 0, 0);
+		counterJib.castShadow = true;
+		jibGroup.add(counterJib);
+
+		const counterweight = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.8, 0.8), accentMat);
+		counterweight.position.set(-1.6, -0.35, 0);
+		counterweight.castShadow = true;
+		jibGroup.add(counterweight);
+
+		const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.6, 16), accentMat);
+		hub.position.set(0, 0.3, 0);
+		hub.castShadow = true;
+		jibGroup.add(hub);
+
+		const hoistPositions = new Float32Array(6);
+		const hoistGeo = new THREE.BufferGeometry();
+		hoistGeo.setAttribute('position', new THREE.BufferAttribute(hoistPositions, 3));
+		const hoistLine = new THREE.Line(hoistGeo, new THREE.LineBasicMaterial({ color: 0xd7e6ef }));
+		scene.add(hoistLine);
+
+		// ---- Physics world ----
+		const worldDef = b3.b3DefaultWorldDef();
+		worldDef.gravity = [0, -9, 0]; // a touch lighter than real gravity
+		const world = b3.b3CreateWorld(worldDef);
+
+		// ground body (static)
+		const groundDef = b3.b3DefaultBodyDef();
+		groundDef.position = [0, -0.25, 0];
+		const groundBody = b3.b3CreateBody(world, groundDef);
+		b3.b3CreateBoxShape(groundBody, b3.b3DefaultShapeDef(), 15, 0.25, 10);
+
+		// crane tower body (static)
+		const towerDef = b3.b3DefaultBodyDef();
+		towerDef.position = [TOWER_X, JIB_Y / 2, TOWER_Z];
+		const towerBody = b3.b3CreateBody(world, towerDef);
+		b3.b3CreateBoxShape(towerBody, b3.b3DefaultShapeDef(), 0.5, JIB_Y / 2, 0.5);
+
+		// anchor body (kinematic — follows the jib tip and raise/lower height)
+		const anchorDef = b3.b3DefaultBodyDef();
+		anchorDef.type = b3.b3BodyType.b3_kinematicBody;
+		anchorDef.position = [anchorPosition().x, anchorPosition().y, anchorPosition().z];
+		const anchorBody = b3.b3CreateBody(world, anchorDef);
+
+		// ball body (dynamic sphere)
+		const ballDef = b3.b3DefaultBodyDef();
+		ballDef.type = b3.b3BodyType.b3_dynamicBody;
+		const a0 = anchorPosition();
+		ballDef.position = [a0.x, a0.y - LINK_COUNT * 2 * LINK_EXTENT - BALL_RADIUS, a0.z];
+		ballDef.linearDamping = 0.2; // light damping; the chain's joints also resist
+		ballDef.angularDamping = 0.4;
+		const ballBody = b3.b3CreateBody(world, ballDef);
+		const ballShapeDef = b3.b3DefaultShapeDef();
+		ballShapeDef.density = 90;
+		ballShapeDef.baseMaterial.friction = 0.4;
+		ballShapeDef.baseMaterial.restitution = 0.05;
+		b3.b3CreateSphereShape(ballBody, ballShapeDef, { center: [0, 0, 0], radius: BALL_RADIUS });
+
+		// ball mesh
+		const ballMesh = new THREE.Mesh(
+			new THREE.SphereGeometry(BALL_RADIUS, 48, 32),
+			new THREE.MeshStandardMaterial({ color: 0xfdb913, roughness: 0.35, metalness: 0.4 }),
+		);
+		ballMesh.castShadow = true;
+		ballMesh.receiveShadow = true;
+		scene.add(ballMesh);
+
+		// ---- Ball and chain (Erin Catto's Box3D sample technique) ----
+		// Capsule links joined end-to-end by spherical (ball-and-socket) joints,
+		// with a tiny motor torque on each joint for stability.
+		const linkGeo = new THREE.CapsuleGeometry(LINK_RADIUS, LINK_EXTENT * 2, 6, 16);
+		const linkMat = new THREE.MeshStandardMaterial({ color: 0xd7e6ef, roughness: 0.4, metalness: 0.6 });
+		const chainLinks: { id: b3BodyId; mesh: THREE.Mesh }[] = [];
+
+		const capsule: b3Capsule = {
+			center1: [0, -LINK_EXTENT, 0],
+			center2: [0, LINK_EXTENT, 0],
+			radius: LINK_RADIUS,
+		};
+		const linkShapeDef = b3.b3DefaultShapeDef();
+		linkShapeDef.density = 50;
+		linkShapeDef.baseMaterial.friction = 0.3;
+		linkShapeDef.baseMaterial.restitution = 0;
+
+		const linkBodyDef = b3.b3DefaultBodyDef();
+		linkBodyDef.type = b3.b3BodyType.b3_dynamicBody;
+		linkBodyDef.linearDamping = 0.1;
+		linkBodyDef.angularDamping = 0.1;
+
+		const jointDef = b3.b3DefaultSphericalJointDef();
+		jointDef.enableMotor = true;
+		jointDef.maxMotorTorque = 20;
+
+		// first joint: anchor origin -> first link's top end
+		jointDef.base.localFrameA = { position: [0, 0, 0], quaternion: [0, 0, 0, 1] };
+		jointDef.base.localFrameB = { position: [0, LINK_EXTENT, 0], quaternion: [0, 0, 0, 1] };
+
+		let parent = anchorBody;
+		for (let i = 0; i < LINK_COUNT; i += 1) {
+			linkBodyDef.position = [a0.x, a0.y - (1 + 2 * i) * LINK_EXTENT, a0.z];
+			const id = b3.b3CreateBody(world, linkBodyDef);
+			b3.b3CreateCapsuleShape(id, linkShapeDef, capsule);
+
+			jointDef.base.bodyIdA = parent;
+			jointDef.base.bodyIdB = id;
+			b3.b3CreateSphericalJoint(world, jointDef);
+
+			// next joint: this link's bottom end -> next link's top end
+			jointDef.base.localFrameA = { position: [0, -LINK_EXTENT, 0], quaternion: [0, 0, 0, 1] };
+			jointDef.base.localFrameB = { position: [0, LINK_EXTENT, 0], quaternion: [0, 0, 0, 1] };
+			parent = id;
+
+			const mesh = new THREE.Mesh(linkGeo, linkMat);
+			mesh.castShadow = true;
+			scene.add(mesh);
+			chainLinks.push({ id, mesh });
+		}
+
+		// attach the ball to the last link's bottom end
+		jointDef.base.bodyIdA = parent;
+		jointDef.base.bodyIdB = ballBody;
+		jointDef.base.localFrameA = { position: [0, -LINK_EXTENT, 0], quaternion: [0, 0, 0, 1] };
+		jointDef.base.localFrameB = { position: [0, BALL_RADIUS, 0], quaternion: [0, 0, 0, 1] };
+		b3.b3CreateSphericalJoint(world, jointDef);
+
+		// ---- Box wall with the logo painted across the box faces ----
+		const boxTemplate = new THREE.BoxGeometry(BOX_HALF * 2, BOX_HALF * 2, BOX_HALF * 2);
+		const sideMat = new THREE.MeshStandardMaterial({ color: 0xd7e6ef, roughness: 0.55, metalness: 0.45 });
+
+		let logoTexture: THREE.CanvasTexture | null = null;
+		try {
+			logoTexture = await loadLogoTexture(WALL_COLS, WALL_ROWS);
+		} catch {
+			// logo unavailable — the wall stays plain steel
+		}
+		const frontMat = new THREE.MeshStandardMaterial({
+			color: logoTexture ? 0xffffff : 0xd7e6ef,
+			map: logoTexture,
+			roughness: 0.6,
+			metalness: 0.1,
+		});
+		const faceMaterials = [sideMat, sideMat, sideMat, sideMat, frontMat, sideMat];
+
+		let boxes: { id: b3BodyId; mesh: THREE.Mesh }[] = [];
+		const knocked = new Set<number>();
+
+		// Map a box's front (+z) face to its slice of the logo texture, using its
+		// actual x position so the logo stays continuous across staggered rows.
+		function setBoxFrontUV(geo: THREE.BufferGeometry, x: number, row: number, leftCenter: number, xRange: number) {
+			const pos = geo.getAttribute('position') as THREE.BufferAttribute;
+			const uv = geo.getAttribute('uv') as THREE.BufferAttribute;
+			const uCenter = (x - leftCenter) / xRange;
+			const halfU = BOX_SPACING / 2 / xRange;
+			const u0 = uCenter - halfU;
+			const u1 = uCenter + halfU;
+			const v0 = (WALL_ROWS - 1 - row) / WALL_ROWS;
+			const v1 = (WALL_ROWS - row) / WALL_ROWS;
+			for (let i = 0; i < pos.count; i += 1) {
+				if (pos.getZ(i) > 0) {
+					uv.setXY(i, pos.getX(i) > 0 ? u1 : u0, pos.getY(i) > 0 ? v1 : v0);
+				}
+			}
+			uv.needsUpdate = true;
+		}
+
+		function createWall() {
+			const shapeDef = b3.b3DefaultShapeDef();
+			shapeDef.density = 30;
+			shapeDef.baseMaterial.friction = 0.8;
+			shapeDef.baseMaterial.restitution = 0;
+
+			const list: { id: b3BodyId; mesh: THREE.Mesh }[] = [];
+			const rowStagger = BOX_SPACING / 2;
+			const leftCenter = WALL_CX - ((WALL_COLS - 1) / 2) * BOX_SPACING;
+			const rightCenter = leftCenter + (WALL_COLS - 1) * BOX_SPACING + rowStagger;
+			const xRange = rightCenter - leftCenter;
+
+			for (let row = 0; row < WALL_ROWS; row += 1) {
+				const y = BOX_HALF + (WALL_ROWS - 1 - row) * BOX_SPACING;
+				const stagger = (row % 2) * rowStagger;
+				for (let col = 0; col < WALL_COLS; col += 1) {
+					const x = WALL_CX + (col - (WALL_COLS - 1) / 2) * BOX_SPACING + stagger;
+
+					const def = b3.b3DefaultBodyDef();
+					def.type = b3.b3BodyType.b3_dynamicBody;
+					def.position = [x, y, WALL_Z];
+					const id = b3.b3CreateBody(world, def);
+					b3.b3CreateBoxShape(id, shapeDef, BOX_HALF, BOX_HALF, BOX_HALF);
+
+					const geo = boxTemplate.clone();
+					if (logoTexture) setBoxFrontUV(geo, x, row, leftCenter, xRange);
+
+					const mesh = new THREE.Mesh(geo, faceMaterials);
+					mesh.castShadow = true;
+					mesh.receiveShadow = true;
+					scene.add(mesh);
+					list.push({ id, mesh });
+				}
+			}
+
+			return list;
+		}
+
+		boxes = createWall();
+		totalEl.textContent = String(boxes.length);
+
+		// ---- Scratch buffers (out-param-first, zero-allocation) ----
+		const ballPos: b3Vec3 = [0, 0, 0];
+		const ballRot: b3Quat = [0, 0, 0, 1];
+		const pos: b3Vec3 = [0, 0, 0];
+		const rot: b3Quat = [0, 0, 0, 1];
+
+		// ---- Reset ----
+		function resetGame() {
+			for (const c of boxes) {
+				b3.b3DestroyBody(c.id);
+				scene.remove(c.mesh);
+			}
+			boxes = createWall();
+			totalEl.textContent = String(boxes.length);
+
+			craneAngle = CRANE_START_ANGLE;
+			anchorY = ANCHOR_Y_DEFAULT;
+
+			const a = anchorPosition();
+			b3.b3Body_SetTransform(anchorBody, [a.x, a.y, a.z], [0, 0, 0, 1]);
+			b3.b3Body_SetLinearVelocity(anchorBody, [0, 0, 0]);
+
+			chainLinks.forEach((link, i) => {
+				b3.b3Body_SetTransform(link.id, [a.x, a.y - (1 + 2 * i) * LINK_EXTENT, a.z], [0, 0, 0, 1]);
+				b3.b3Body_SetLinearVelocity(link.id, [0, 0, 0]);
+				b3.b3Body_SetAngularVelocity(link.id, [0, 0, 0]);
+			});
+
+			b3.b3Body_SetTransform(
+				ballBody,
+				[a.x, a.y - LINK_COUNT * 2 * LINK_EXTENT - BALL_RADIUS, a.z],
+				[0, 0, 0, 1],
+			);
+			b3.b3Body_SetLinearVelocity(ballBody, [0, 0, 0]);
+			b3.b3Body_SetAngularVelocity(ballBody, [0, 0, 0]);
+
+			knocked.clear();
+			countEl.textContent = '0';
+		}
+
+		resetBtn.addEventListener('click', resetGame);
+
+		// ---- Keyboard controls ----
+		const keys = new Set<string>();
+		window.addEventListener('keydown', (event) => {
+			const k = event.key.toLowerCase();
+			if (k === 'a' || k === 'd' || k === 'w' || k === 's') {
+				keys.add(k);
+				event.preventDefault();
+			}
+		});
+		window.addEventListener('keyup', (event) => {
+			keys.delete(event.key.toLowerCase());
+		});
+		window.addEventListener('blur', () => keys.clear());
+
+		// ---- Resize ----
+		function resize() {
+			const stage = canvas.parentElement as HTMLElement;
+			const w = stage.clientWidth;
+			const h = stage.clientHeight;
+			renderer.setSize(w, h, false);
+			camera.aspect = w / h;
+			camera.updateProjectionMatrix();
+		}
+		resize();
+		if (typeof ResizeObserver !== 'undefined') {
+			new ResizeObserver(resize).observe(canvas.parentElement as Element);
+		} else {
+			window.addEventListener('resize', resize);
+		}
+
+		// ---- Score / win state ----
+		function updateScore() {
+			for (const c of boxes) {
+				if (!knocked.has(c.id.index1)) {
+					b3.b3Body_GetRotation(rot, c.id);
+					const upY = 1 - 2 * (rot[0] * rot[0] + rot[2] * rot[2]);
+					if (upY < 0.82) knocked.add(c.id.index1);
+				}
+			}
+			countEl.textContent = String(knocked.size);
+
+			if (knocked.size === boxes.length) {
+				hintEl.textContent = 'Wall wrecked! Nice demolition.';
+				hintEl.classList.add('is-win');
+			} else {
+				hintEl.textContent = 'A/D rotate \u00b7 W/S raise & lower';
+				hintEl.classList.remove('is-win');
+			}
+		}
+
+		// ---- Loop ----
+		let lastTime = performance.now();
+		function loop(now: number) {
+			requestAnimationFrame(loop);
+
+			const dt = Math.min((now - lastTime) / 1000, 1 / 30);
+			lastTime = now;
+			if (keys.has('a')) craneAngle += ROTATE_SPEED * dt;
+			if (keys.has('d')) craneAngle -= ROTATE_SPEED * dt;
+			if (keys.has('w')) anchorY = Math.min(ANCHOR_Y_MAX, anchorY + RAISE_SPEED * dt);
+			if (keys.has('s')) anchorY = Math.max(ANCHOR_Y_MIN, anchorY - RAISE_SPEED * dt);
+
+			// move the kinematic anchor to the jib tip and raise/lower height
+			const a = anchorPosition();
+			b3.b3Body_SetTargetTransform(
+				anchorBody,
+				{ position: [a.x, a.y, a.z], quaternion: [0, 0, 0, 1] },
+				dt,
+				true,
+			);
+
+			// rotate the jib visual and update the hoist cable
+			jibGroup.rotation.y = -craneAngle;
+			const tipX = TOWER_X + JIB_LENGTH * Math.cos(craneAngle);
+			const tipZ = TOWER_Z + JIB_LENGTH * Math.sin(craneAngle);
+			hoistPositions[0] = tipX;
+			hoistPositions[1] = JIB_Y;
+			hoistPositions[2] = tipZ;
+			hoistPositions[3] = a.x;
+			hoistPositions[4] = a.y;
+			hoistPositions[5] = a.z;
+			hoistGeo.attributes.position.needsUpdate = true;
+
+			b3.b3World_Step(world, dt, 24);
+
+			// sync chain links
+			for (const link of chainLinks) {
+				b3.b3Body_GetPosition(pos, link.id);
+				b3.b3Body_GetRotation(rot, link.id);
+				link.mesh.position.set(pos[0], pos[1], pos[2]);
+				link.mesh.quaternion.set(rot[0], rot[1], rot[2], rot[3]);
+			}
+
+			// sync ball
+			b3.b3Body_GetPosition(ballPos, ballBody);
+			b3.b3Body_GetRotation(ballRot, ballBody);
+			ballMesh.position.set(ballPos[0], ballPos[1], ballPos[2]);
+			ballMesh.quaternion.set(ballRot[0], ballRot[1], ballRot[2], ballRot[3]);
+
+			// sync boxes
+			for (const c of boxes) {
+				b3.b3Body_GetPosition(pos, c.id);
+				b3.b3Body_GetRotation(rot, c.id);
+				c.mesh.position.set(pos[0], pos[1], pos[2]);
+				c.mesh.quaternion.set(rot[0], rot[1], rot[2], rot[3]);
+			}
+
+			updateScore();
+			renderer.render(scene, camera);
+		}
+
+		requestAnimationFrame(loop);
+	}
+
+	main();
+</script>
+
+<style>
+	.crane-game3d {
+		margin-top: 28px;
+	}
+
+	.game-head {
+		display: flex;
+		justify-content: space-between;
+		align-items: flex-start;
+		flex-wrap: wrap;
+		gap: 20px;
+		margin-bottom: 20px;
+	}
+
+	.game-copy {
+		margin: 0;
+		max-width: 600px;
+		color: var(--muted);
+		line-height: 1.6;
+	}
+
+	.game-ui {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-end;
+		gap: 12px;
+	}
+
+	.score {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-end;
+		line-height: 1.1;
+	}
+
+	.score-value {
+		font-size: 2rem;
+		font-weight: 900;
+		letter-spacing: -0.03em;
+		color: var(--accent);
+	}
+
+	.score-label {
+		color: var(--muted);
+		font-size: 0.85rem;
+	}
+
+	.reset-button {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		min-height: 42px;
+		padding: 0 18px;
+		border: 1px solid rgba(154, 199, 226, 0.26);
+		border-radius: 999px;
+		background: rgba(255, 255, 255, 0.02);
+		color: var(--text);
+		font-weight: 700;
+		font-size: 0.9rem;
+		cursor: pointer;
+		transition:
+			transform 0.2s ease,
+			border-color 0.2s ease,
+			background 0.2s ease;
+	}
+
+	.reset-button:hover {
+		transform: translateY(-1px);
+		border-color: var(--line);
+		background: rgba(255, 255, 255, 0.06);
+	}
+
+	.game-stage {
+		position: relative;
+		overflow: hidden;
+		aspect-ratio: 16 / 9;
+		border: 1px solid var(--line);
+		border-radius: 24px;
+		background: #08131c;
+		box-shadow: 0 28px 70px rgba(2, 5, 10, 0.5);
+	}
+
+	canvas {
+		display: block;
+		width: 100%;
+		height: 100%;
+		touch-action: none;
+		user-select: none;
+		-webkit-user-select: none;
+	}
+
+	.stage-hint {
+		position: absolute;
+		bottom: 14px;
+		left: 50%;
+		transform: translateX(-50%);
+		margin: 0;
+		padding: 8px 16px;
+		font-size: 0.8rem;
+		color: var(--muted);
+		white-space: nowrap;
+		background: rgba(9, 17, 24, 0.82);
+		border: 1px solid var(--line);
+		border-radius: 999px;
+		pointer-events: none;
+		transition:
+			color 0.2s ease,
+			border-color 0.2s ease;
+	}
+
+	.stage-hint.is-active {
+		color: var(--text);
+		border-color: var(--secondary);
+	}
+
+	.stage-hint.is-win {
+		color: var(--success);
+		border-color: rgba(150, 242, 180, 0.5);
+	}
+
+	.stage-error {
+		position: absolute;
+		top: 50%;
+		left: 50%;
+		transform: translate(-50%, -50%);
+		margin: 0;
+		color: #ff9b9b;
+		text-align: center;
+	}
+
+	@media (max-width: 620px) {
+		.game-ui {
+			align-items: flex-start;
+		}
+
+		.stage-hint {
+			white-space: normal;
+			text-align: center;
+			max-width: calc(100% - 32px);
+		}
+	}
+</style>
