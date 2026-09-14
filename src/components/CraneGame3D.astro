@@ -6,8 +6,9 @@
 <div class="crane-game3d" id="crane-game3d">
 	<div class="game-head">
 		<p class="game-copy">
-			Rotate the crane with A and D, and raise or lower the ball with W and S. Topple every
-			box to wreck the wall. This prototype runs on Box3D + three.js.
+			Rotate the crane with A and D, raise or lower the ball with W and S, and topple every
+			box to wreck the wall. This is a tech demo of Box3D — not the game. Big Time will use
+			this same engine for its real-time, fully destructible worlds.
 		</p>
 		<div class="game-ui">
 			<div class="score" role="status" aria-live="polite">
@@ -28,7 +29,7 @@
 <script>
 	import * as THREE from 'three';
 	import Box3D from 'box3d.js/inline';
-	import type { Box3DModule, b3BodyId, b3Capsule, b3Quat, b3Vec3 } from 'box3d.js/inline';
+	import type { Box3DModule, b3BodyId, b3Capsule, b3JointId, b3Quat, b3Vec3 } from 'box3d.js/inline';
 
 	const canvas = document.getElementById('crane3d-canvas') as HTMLCanvasElement;
 	const countEl = document.getElementById('crane3d-count') as HTMLElement;
@@ -42,13 +43,9 @@
 	const TOWER_Z = 0;
 	const JIB_Y = 9; // tower / jib height
 	const JIB_LENGTH = 4; // jib tip distance from the tower centre
-	const ANCHOR_Y_DEFAULT = 8;
-	const ANCHOR_Y_MIN = 5.5;
-	const ANCHOR_Y_MAX = 9;
 	const BALL_RADIUS = 1.1;
-	const LINK_EXTENT = 0.22; // half-length of each chain link
-	const LINK_RADIUS = 0.09;
-	const LINK_COUNT = 10;
+	const LINK_EXTENT = 0.13; // half-length of each chain link
+	const LINK_RADIUS = 0.05;
 	const CRANE_START_ANGLE = -Math.PI / 2; // jib points -Z at rest, so the ball hangs opposite the wall
 	const WALL_CX = 2; // centre of the box wall along X
 	const WALL_Z = 3; // the wall is a vertical plane at this Z, close to the swing
@@ -56,18 +53,49 @@
 	const BOX_SPACING = 0.5; // centre-to-centre spacing of the boxes
 	const WALL_COLS = 14; // boxes across the wall
 	const WALL_ROWS = 14; // boxes up the wall
-	const ROTATE_SPEED = 1.4; // rad/s
-	const RAISE_SPEED = 2.5; // m/s
+	const ROTATE_SPEED = 1.4; // rad/s (jib swing)
 
-	let anchorY = ANCHOR_Y_DEFAULT;
-	let craneAngle = CRANE_START_ANGLE; // ball starts on the opposite side of the crane
+	// ---- Chain winch (chain draw / pull) ----
+	// A spool hangs at the jib tip and the chain's own top links wind around it.
+	// As the spool is cranked, each link that reaches the contact point on the
+	// spool's underside is taken onto the spool, growing the wound coil; the free
+	// chain below that point hangs and swings. Cranking reels the free chain
+	// on/off the spool - the chain itself winds around the winch to lift and
+	// lower the ball.
+	const LINK_PITCH = LINK_EXTENT * 2; // link spacing along the chain (m)
+	const SPOOL_R = 0.55; // spool barrel radius (m)
+	const SPOOL_HALF_W = 0.22; // half spool depth along Z
+	const SPOOL_Y = 7.4; // spool axle height at the jib tip
+	const LINK_DENSITY = 16;
+	const LINK_TORQUE = 6; // per-link motor keeps the free chain tidy
+	const WRAP_R = SPOOL_R + LINK_RADIUS; // spool surface radius (link centres)
+	const DELTA = LINK_PITCH / WRAP_R; // spool radians per link wound on
+	const MIN_COIL = 0; // wound links (0 = chain fully paid out)
+	const MAX_COIL = 13;
+	const START_COIL = 2; // pre-wound so the wrap reads at rest
+	const TOTAL_LINKS = 18; // links in the chain (wound + free share these links)
+	const WIND_RATE = 4; // links wound/unwound per second (W/S)
 
-	function anchorPosition(): { x: number; y: number; z: number } {
+	let coil = START_COIL; // links currently wound on the spool (source of truth)
+	let windFloat = START_COIL; // smoothed wound-count target driven by W/S
+	let craneAngle = CRANE_START_ANGLE; // ball starts on the opposite side of the wall
+
+	// The spool centre rides the moving jib tip (A/D); the spool itself only spins.
+	function spoolPoint(): { x: number; y: number; z: number } {
 		return {
 			x: TOWER_X + JIB_LENGTH * Math.cos(craneAngle),
-			y: anchorY,
+			y: SPOOL_Y,
 			z: TOWER_Z + JIB_LENGTH * Math.sin(craneAngle),
 		};
+	}
+	// Ball centre height for a given wound count: freeLinks = TOTAL_LINKS - coil,
+	// each LINK_PITCH long, hanging from the spool's underside (the fairlead).
+	function ballYFromCoil(c: number): number {
+		return SPOOL_Y - WRAP_R - (TOTAL_LINKS - c) * LINK_PITCH - BALL_RADIUS;
+	}
+
+	function rotZ(a: number): b3Quat {
+		return [0, 0, Math.sin(a / 2), Math.cos(a / 2)];
 	}
 
 	// Bake the logo (public/logo.svg) onto a steel background matching the wall
@@ -181,11 +209,40 @@
 		hub.castShadow = true;
 		jibGroup.add(hub);
 
-		const hoistPositions = new Float32Array(6);
-		const hoistGeo = new THREE.BufferGeometry();
-		hoistGeo.setAttribute('position', new THREE.BufferAttribute(hoistPositions, 3));
-		const hoistLine = new THREE.Line(hoistGeo, new THREE.LineBasicMaterial({ color: 0xd7e6ef }));
-		scene.add(hoistLine);
+		// ---- Spool visual (synced from the physical spool each frame) ----
+		const spoolVis = new THREE.Group();
+		const spoolBarrel = new THREE.Mesh(
+			new THREE.CylinderGeometry(SPOOL_R, SPOOL_R, SPOOL_HALF_W * 2, 28),
+			steelMat,
+		);
+		spoolBarrel.rotation.x = Math.PI / 2; // axis along Z so it spins about Z
+		spoolBarrel.castShadow = true;
+		spoolVis.add(spoolBarrel);
+
+		for (const side of [-1, 1]) {
+			const flange = new THREE.Mesh(new THREE.CylinderGeometry(SPOOL_R + 0.05, SPOOL_R + 0.05, 0.05, 24), accentMat);
+			flange.rotation.x = Math.PI / 2;
+			flange.position.z = side * (SPOOL_HALF_W + 0.03);
+			spoolVis.add(flange);
+		}
+
+		// teeth so the winding is readable
+		const spoolToothGeo = new THREE.BoxGeometry(0.08, 0.16, SPOOL_HALF_W * 2 - 0.02);
+		const spoolToothCount = 16;
+		for (let i = 0; i < spoolToothCount; i += 1) {
+			const tooth = new THREE.Mesh(spoolToothGeo, accentMat);
+			const ang = (i / spoolToothCount) * Math.PI * 2;
+			tooth.position.set(Math.cos(ang) * SPOOL_R, Math.sin(ang) * SPOOL_R, 0);
+			tooth.rotation.z = ang;
+			spoolVis.add(tooth);
+		}
+		scene.add(spoolVis);
+
+		// short mount from the jib tip down to the spool axle
+		const mountRod = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, JIB_Y - SPOOL_Y, 10), steelMat);
+		mountRod.position.set(JIB_LENGTH, -(JIB_Y - SPOOL_Y) / 2, 0);
+		mountRod.castShadow = true;
+		jibGroup.add(mountRod);
 
 		// ---- Physics world ----
 		const worldDef = b3.b3DefaultWorldDef();
@@ -204,22 +261,52 @@
 		const towerBody = b3.b3CreateBody(world, towerDef);
 		b3.b3CreateBoxShape(towerBody, b3.b3DefaultShapeDef(), 0.5, JIB_Y / 2, 0.5);
 
-		// anchor body (kinematic — follows the jib tip and raise/lower height)
-		const anchorDef = b3.b3DefaultBodyDef();
-		anchorDef.type = b3.b3BodyType.b3_kinematicBody;
-		anchorDef.position = [anchorPosition().x, anchorPosition().y, anchorPosition().z];
-		const anchorBody = b3.b3CreateBody(world, anchorDef);
+		// ---- Chain winch: spool + wound coil + free chain + ball ----
+		interface ChainLinkRec {
+			id: b3BodyId;
+			mesh: THREE.Mesh;
+			next: b3JointId | null; // spherical to the link below / to the ball
+		}
+		const s0 = spoolPoint();
 
-		// ball body (dynamic sphere)
+		// Kinematic spool at the jib tip: WE set its pose every frame, so the wound
+		// coil is always driven and can never stall under the chain's load.
+		const spoolDef = b3.b3DefaultBodyDef();
+		spoolDef.type = b3.b3BodyType.b3_kinematicBody;
+		spoolDef.position = [s0.x, s0.y, s0.z];
+		const spoolBody = b3.b3CreateBody(world, spoolDef);
+		const spoolShapeDef = b3.b3DefaultShapeDef();
+		const spoolHull = b3.b3CreateCylinder(SPOOL_HALF_W * 2, SPOOL_R, 0, 24);
+		const spoolShapeId = b3.b3CreateTransformedHullShape(
+			spoolBody,
+			spoolShapeDef,
+			spoolHull,
+			{ position: [0, 0, 0], quaternion: rotZ(Math.PI / 2) }, // hull Y -> Z
+			[1, 1, 1],
+		);
+		b3.b3Shape_SetFilter(spoolShapeId, { categoryBits: 0n, maskBits: 0n, groupIndex: 0 }, false);
+		b3.b3DestroyHull(spoolHull);
+
+		// Current spool rotation (rad). It is animated to coil*DELTA so the newest
+		// wound link always ends at the fairlead (the free chain's exit point).
+		let spoolAng = coil * DELTA;
+		function setSpoolPose() {
+			const p = spoolPoint();
+			b3.b3Body_SetTransform(spoolBody, [p.x, p.y, p.z], rotZ(spoolAng));
+			b3.b3Body_SetLinearVelocity(spoolBody, [0, 0, 0]);
+			b3.b3Body_SetAngularVelocity(spoolBody, [0, 0, 0]);
+		}
+		setSpoolPose();
+
+		// ball body (dynamic sphere - it does the wrecking)
 		const ballDef = b3.b3DefaultBodyDef();
 		ballDef.type = b3.b3BodyType.b3_dynamicBody;
-		const a0 = anchorPosition();
-		ballDef.position = [a0.x, a0.y - LINK_COUNT * 2 * LINK_EXTENT - BALL_RADIUS, a0.z];
-		ballDef.linearDamping = 0.2; // light damping; the chain's joints also resist
+		ballDef.position = [s0.x, ballYFromCoil(coil), s0.z];
+		ballDef.linearDamping = 0.2;
 		ballDef.angularDamping = 0.4;
 		const ballBody = b3.b3CreateBody(world, ballDef);
 		const ballShapeDef = b3.b3DefaultShapeDef();
-		ballShapeDef.density = 90;
+		ballShapeDef.density = 85;
 		ballShapeDef.baseMaterial.friction = 0.4;
 		ballShapeDef.baseMaterial.restitution = 0.05;
 		b3.b3CreateSphereShape(ballBody, ballShapeDef, { center: [0, 0, 0], radius: BALL_RADIUS });
@@ -233,12 +320,11 @@
 		ballMesh.receiveShadow = true;
 		scene.add(ballMesh);
 
-		// ---- Ball and chain (Erin Catto's Box3D sample technique) ----
-		// Capsule links joined end-to-end by spherical (ball-and-socket) joints,
-		// with a tiny motor torque on each joint for stability.
-		const linkGeo = new THREE.CapsuleGeometry(LINK_RADIUS, LINK_EXTENT * 2, 6, 16);
+		// ---- Chain of capsule links. recs[0..coil-1] are wound onto the spool;
+		// recs[coil..] are the free chain that hangs below and swings. ----
+		const recs: ChainLinkRec[] = [];
+		const linkGeo = new THREE.CapsuleGeometry(LINK_RADIUS, LINK_EXTENT * 2, 5, 8);
 		const linkMat = new THREE.MeshStandardMaterial({ color: 0xd7e6ef, roughness: 0.4, metalness: 0.6 });
-		const chainLinks: { id: b3BodyId; mesh: THREE.Mesh }[] = [];
 
 		const capsule: b3Capsule = {
 			center1: [0, -LINK_EXTENT, 0],
@@ -246,50 +332,123 @@
 			radius: LINK_RADIUS,
 		};
 		const linkShapeDef = b3.b3DefaultShapeDef();
-		linkShapeDef.density = 50;
-		linkShapeDef.baseMaterial.friction = 0.3;
+		linkShapeDef.density = LINK_DENSITY;
 		linkShapeDef.baseMaterial.restitution = 0;
 
 		const linkBodyDef = b3.b3DefaultBodyDef();
 		linkBodyDef.type = b3.b3BodyType.b3_dynamicBody;
-		linkBodyDef.linearDamping = 0.1;
-		linkBodyDef.angularDamping = 0.1;
+		linkBodyDef.linearDamping = 0.04;
+		linkBodyDef.angularDamping = 0.04;
 
-		const jointDef = b3.b3DefaultSphericalJointDef();
-		jointDef.enableMotor = true;
-		jointDef.maxMotorTorque = 20;
+		const linkJointDef = b3.b3DefaultSphericalJointDef();
+		linkJointDef.enableMotor = true;
+		linkJointDef.maxMotorTorque = LINK_TORQUE;
+		linkJointDef.base.constraintHertz = 200; // moderately stiff: less link stretch, still whippy
 
-		// first joint: anchor origin -> first link's top end
-		jointDef.base.localFrameA = { position: [0, 0, 0], quaternion: [0, 0, 0, 1] };
-		jointDef.base.localFrameB = { position: [0, LINK_EXTENT, 0], quaternion: [0, 0, 0, 1] };
+		const fairY = SPOOL_Y - WRAP_R; // underside of the spool (chain exit)
 
-		let parent = anchorBody;
-		for (let i = 0; i < LINK_COUNT; i += 1) {
-			linkBodyDef.position = [a0.x, a0.y - (1 + 2 * i) * LINK_EXTENT, a0.z];
+		// hang all TOTAL_LINKS links straight down below the spool (index 0 = top)
+		for (let i = 0; i < TOTAL_LINKS; i += 1) {
+			linkBodyDef.position = [s0.x, fairY - (1 + 2 * i) * LINK_EXTENT, s0.z];
 			const id = b3.b3CreateBody(world, linkBodyDef);
-			b3.b3CreateCapsuleShape(id, linkShapeDef, capsule);
-
-			jointDef.base.bodyIdA = parent;
-			jointDef.base.bodyIdB = id;
-			b3.b3CreateSphericalJoint(world, jointDef);
-
-			// next joint: this link's bottom end -> next link's top end
-			jointDef.base.localFrameA = { position: [0, -LINK_EXTENT, 0], quaternion: [0, 0, 0, 1] };
-			jointDef.base.localFrameB = { position: [0, LINK_EXTENT, 0], quaternion: [0, 0, 0, 1] };
-			parent = id;
+			const shapeId = b3.b3CreateCapsuleShape(id, linkShapeDef, capsule);
+			b3.b3Shape_SetFilter(shapeId, { categoryBits: 0n, maskBits: 0n, groupIndex: 0 }, false); // never collide
 
 			const mesh = new THREE.Mesh(linkGeo, linkMat);
 			mesh.castShadow = true;
 			scene.add(mesh);
-			chainLinks.push({ id, mesh });
+			recs.push({ id, mesh, next: null });
 		}
 
-		// attach the ball to the last link's bottom end
-		jointDef.base.bodyIdA = parent;
-		jointDef.base.bodyIdB = ballBody;
-		jointDef.base.localFrameA = { position: [0, -LINK_EXTENT, 0], quaternion: [0, 0, 0, 1] };
-		jointDef.base.localFrameB = { position: [0, BALL_RADIUS, 0], quaternion: [0, 0, 0, 1] };
-		b3.b3CreateSphericalJoint(world, jointDef);
+		// chain joints: recs[i] <-> recs[i+1], last <-> ball
+		for (let i = 0; i < TOTAL_LINKS - 1; i += 1) {
+			linkJointDef.base.bodyIdA = recs[i].id;
+			linkJointDef.base.bodyIdB = recs[i + 1].id;
+			linkJointDef.base.localFrameA = { position: [0, -LINK_EXTENT, 0], quaternion: [0, 0, 0, 1] };
+			linkJointDef.base.localFrameB = { position: [0, LINK_EXTENT, 0], quaternion: [0, 0, 0, 1] };
+			recs[i].next = b3.b3CreateSphericalJoint(world, linkJointDef);
+		}
+		linkJointDef.base.bodyIdA = recs[TOTAL_LINKS - 1].id;
+		linkJointDef.base.bodyIdB = ballBody;
+		linkJointDef.base.localFrameA = { position: [0, -LINK_EXTENT, 0], quaternion: [0, 0, 0, 1] };
+		linkJointDef.base.localFrameB = { position: [0, BALL_RADIUS, 0], quaternion: [0, 0, 0, 1] };
+		recs[TOTAL_LINKS - 1].next = b3.b3CreateSphericalJoint(world, linkJointDef);
+
+		// boundary joint: spool underside <-> free top link's top end (the fairlead)
+		let boundaryJ: b3JointId | null = null;
+		function connectBoundary() {
+			const top = recs[coil];
+			linkJointDef.base.bodyIdA = spoolBody;
+			linkJointDef.base.bodyIdB = top.id;
+			linkJointDef.base.localFrameA = { position: [0, -WRAP_R, 0], quaternion: [0, 0, 0, 1] };
+			linkJointDef.base.localFrameB = { position: [0, LINK_EXTENT, 0], quaternion: [0, 0, 0, 1] };
+			boundaryJ = b3.b3CreateSphericalJoint(world, linkJointDef);
+		}
+
+		// --- winding: recs[0..coil-1] are wound onto the spool ---
+		// Wound links are driven onto the spool every frame, so they visibly wrap
+		// around it as the coil grows, while the free chain recs[coil..] hangs below
+		// and swings. No weld joints - the driven links cannot fight the solver.
+		function driveWoundLinks() {
+			const c = spoolPoint();
+			for (let i = 0; i < coil; i += 1) {
+				const a = (coil - 1 - i) * DELTA; // world angle around the spool (newest at the bottom)
+				const x = c.x + WRAP_R * Math.sin(a);
+				const y = c.y - WRAP_R * Math.cos(a);
+				b3.b3Body_SetTransform(recs[i].id, [x, y, c.z], rotZ(a - Math.PI / 2));
+				b3.b3Body_SetLinearVelocity(recs[i].id, [0, 0, 0]);
+				b3.b3Body_SetAngularVelocity(recs[i].id, [0, 0, 0]);
+			}
+		}
+		function windIn() {
+			if (coil >= MAX_COIL) return;
+			const top = recs[coil]; // free top, hanging from the fairlead
+			if (boundaryJ) b3.b3DestroyJoint(boundaryJ, true);
+			boundaryJ = null;
+			if (top.next) b3.b3DestroyJoint(top.next, true); // detach it from the free chain
+			top.next = null;
+			coil += 1; // it is now a wound link - driveWoundLinks() places it on the spool
+			connectBoundary(); // free chain now hangs from the next link
+		}
+		function windOut() {
+			if (coil <= MIN_COIL) return;
+			const outer = recs[coil - 1]; // outermost wound link (currently at the fairlead)
+			if (boundaryJ) b3.b3DestroyJoint(boundaryJ, true);
+			boundaryJ = null;
+			// put it back at the top of the free chain, hanging below the fairlead
+			const p = spoolPoint();
+			b3.b3Body_SetTransform(outer.id, [p.x, p.y - WRAP_R - LINK_EXTENT, p.z], [0, 0, 0, 1]);
+			b3.b3Body_SetLinearVelocity(outer.id, [0, 0, 0]);
+			b3.b3Body_SetAngularVelocity(outer.id, [0, 0, 0]);
+			linkJointDef.base.bodyIdA = outer.id;
+			linkJointDef.base.bodyIdB = recs[coil].id;
+			linkJointDef.base.localFrameA = { position: [0, -LINK_EXTENT, 0], quaternion: [0, 0, 0, 1] };
+			linkJointDef.base.localFrameB = { position: [0, LINK_EXTENT, 0], quaternion: [0, 0, 0, 1] };
+			outer.next = b3.b3CreateSphericalJoint(world, linkJointDef);
+			coil -= 1;
+			connectBoundary();
+		}
+		// Reposition the free links (and the ball) to hang from the fairlead.
+		function hangFreeChain() {
+			const c = spoolPoint();
+			const y0 = c.y - WRAP_R;
+			for (let i = coil; i < TOTAL_LINKS; i += 1) {
+				b3.b3Body_SetTransform(recs[i].id, [c.x, y0 - (1 + 2 * (i - coil)) * LINK_EXTENT, c.z], [0, 0, 0, 1]);
+				b3.b3Body_SetLinearVelocity(recs[i].id, [0, 0, 0]);
+				b3.b3Body_SetAngularVelocity(recs[i].id, [0, 0, 0]);
+			}
+			b3.b3Body_SetTransform(ballBody, [c.x, ballYFromCoil(coil), c.z], [0, 0, 0, 1]);
+			b3.b3Body_SetLinearVelocity(ballBody, [0, 0, 0]);
+			b3.b3Body_SetAngularVelocity(ballBody, [0, 0, 0]);
+		}
+
+		// --- pre-wind START_COIL links so a coil is visible at rest ---
+		connectBoundary();
+		for (let k = 0; k < START_COIL; k += 1) windIn();
+		driveWoundLinks();
+		hangFreeChain();
+		spoolAng = coil * DELTA;
+		setSpoolPose();
 
 		// ---- Box wall with the logo painted across the box faces ----
 		const boxTemplate = new THREE.BoxGeometry(BOX_HALF * 2, BOX_HALF * 2, BOX_HALF * 2);
@@ -388,25 +547,14 @@
 			totalEl.textContent = String(boxes.length);
 
 			craneAngle = CRANE_START_ANGLE;
-			anchorY = ANCHOR_Y_DEFAULT;
-
-			const a = anchorPosition();
-			b3.b3Body_SetTransform(anchorBody, [a.x, a.y, a.z], [0, 0, 0, 1]);
-			b3.b3Body_SetLinearVelocity(anchorBody, [0, 0, 0]);
-
-			chainLinks.forEach((link, i) => {
-				b3.b3Body_SetTransform(link.id, [a.x, a.y - (1 + 2 * i) * LINK_EXTENT, a.z], [0, 0, 0, 1]);
-				b3.b3Body_SetLinearVelocity(link.id, [0, 0, 0]);
-				b3.b3Body_SetAngularVelocity(link.id, [0, 0, 0]);
-			});
-
-			b3.b3Body_SetTransform(
-				ballBody,
-				[a.x, a.y - LINK_COUNT * 2 * LINK_EXTENT - BALL_RADIUS, a.z],
-				[0, 0, 0, 1],
-			);
-			b3.b3Body_SetLinearVelocity(ballBody, [0, 0, 0]);
-			b3.b3Body_SetAngularVelocity(ballBody, [0, 0, 0]);
+			// return the winch to its starting wound state
+			while (coil > START_COIL) windOut();
+			while (coil < START_COIL) windIn();
+			spoolAng = coil * DELTA;
+			setSpoolPose();
+			driveWoundLinks();
+			windFloat = coil;
+			hangFreeChain();
 
 			knocked.clear();
 			countEl.textContent = '0';
@@ -473,34 +621,32 @@
 			lastTime = now;
 			if (keys.has('a')) craneAngle += ROTATE_SPEED * dt;
 			if (keys.has('d')) craneAngle -= ROTATE_SPEED * dt;
-			if (keys.has('w')) anchorY = Math.min(ANCHOR_Y_MAX, anchorY + RAISE_SPEED * dt);
-			if (keys.has('s')) anchorY = Math.max(ANCHOR_Y_MIN, anchorY - RAISE_SPEED * dt);
 
-			// move the kinematic anchor to the jib tip and raise/lower height
-			const a = anchorPosition();
-			b3.b3Body_SetTargetTransform(
-				anchorBody,
-				{ position: [a.x, a.y, a.z], quaternion: [0, 0, 0, 1] },
-				dt,
-				true,
-			);
+			// W/S crank the spool: winding in (W) winds chain links onto the spool and
+			// lifts the ball; letting out (S) pays the links back down.
+			const windDir = (keys.has('w') ? 1 : 0) - (keys.has('s') ? 1 : 0);
+			windFloat = Math.max(MIN_COIL, Math.min(MAX_COIL, windFloat + windDir * WIND_RATE * dt));
+			const desiredCoil = Math.round(windFloat);
+			// drive the coil toward the target, one link per step
+			if (desiredCoil > coil) windIn();
+			else if (desiredCoil < coil) windOut();
+			spoolAng = coil * DELTA;
+			setSpoolPose();
+			driveWoundLinks();
 
-			// rotate the jib visual and update the hoist cable
+			// rotate the jib visual
 			jibGroup.rotation.y = -craneAngle;
-			const tipX = TOWER_X + JIB_LENGTH * Math.cos(craneAngle);
-			const tipZ = TOWER_Z + JIB_LENGTH * Math.sin(craneAngle);
-			hoistPositions[0] = tipX;
-			hoistPositions[1] = JIB_Y;
-			hoistPositions[2] = tipZ;
-			hoistPositions[3] = a.x;
-			hoistPositions[4] = a.y;
-			hoistPositions[5] = a.z;
-			hoistGeo.attributes.position.needsUpdate = true;
 
-			b3.b3World_Step(world, dt, 24);
+			b3.b3World_Step(world, dt, 28);
 
-			// sync chain links
-			for (const link of chainLinks) {
+			// sync the spool visual from the physical spool
+			b3.b3Body_GetPosition(pos, spoolBody);
+			b3.b3Body_GetRotation(rot, spoolBody);
+			spoolVis.position.set(pos[0], pos[1], pos[2]);
+			spoolVis.quaternion.set(rot[0], rot[1], rot[2], rot[3]);
+
+			// sync every chain link (wound coil and free chain alike)
+			for (const link of recs) {
 				b3.b3Body_GetPosition(pos, link.id);
 				b3.b3Body_GetRotation(rot, link.id);
 				link.mesh.position.set(pos[0], pos[1], pos[2]);

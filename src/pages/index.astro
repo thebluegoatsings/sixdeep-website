@@ -1,6 +1,6 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import CraneGame from '../components/CraneGame.astro';
+import CraneGame3D from '../components/CraneGame3D.astro';
 ---
 
 <Layout title="Home">
@@ -30,7 +30,7 @@ import CraneGame from '../components/CraneGame.astro';
 						<a class="primary-button" href="https://store.steampowered.com/" target="_blank" rel="noreferrer">
 							Steam coming soon
 						</a>
-						<a class="secondary-button" href="#about">Meet the team</a>
+						<a class="secondary-button" href="#about">About the studio</a>
 					</div>
 					<ul class="stat-list" aria-label="Studio highlights">
 						<li><strong>Now</strong><span>Prototype phase</span></li>
@@ -67,12 +67,12 @@ import CraneGame from '../components/CraneGame.astro';
 
 			<section id="play" class="play-section">
 				<div class="section-heading">
-					<p class="eyebrow">Playable teaser</p>
-					<h2>Wreck the wall</h2>
+					<p class="eyebrow">Tech demo</p>
+					<h2>Box3D in action — a demo!</h2>
 				</div>
-				<CraneGame />
+				<CraneGame3D />
 				<div class="play-cta">
-					<a class="secondary-button" href="/play-3d">Try the 3D prototype</a>
+					<a class="secondary-button" href="/play-3d">Open in full screen</a>
 				</div>
 			</section>
 
@@ -82,33 +82,49 @@ import CraneGame from '../components/CraneGame.astro';
 					<h2>A small team with a big ambition.</h2>
 				</div>
 
+				<div class="about-body">
+					<p>
+						Six Deep Studios LLC is a lean independent studio obsessed with physics-driven
+						games. We believe the environment should be part of the fight — every wall a
+						weapon, every structure a decision. <strong>Big Time</strong> is our first
+						project: a superhero brawler set in fully destructible worlds where nothing is
+						off-limits.
+					</p>
+				</div>
+
+				<!-- TODO: Fill in Alex's placeholders below: [school], [job title · years], [inspiring games] -->
 				<div class="team-grid">
-					<article class="member-card">
-						<div class="avatar">AD</div>
-						<h3>Aiden Drake</h3>
-						<p class="role">Creative Director</p>
-						<p>
-							Shapes the artistic direction and leading vision behind every experience.
+					<article class="team-card">
+						<div class="team-avatar" aria-hidden="true">AB</div>
+						<p class="team-handle">AlienJim</p>
+						<h3>Alex Burton</h3>
+						<p class="team-role">[Job title] · [N]+ years</p>
+						<p class="team-bio">
+							Alex studied game development at [school]. An avid gamer who loves a very
+							wide genre spread, he grew up on everything from [game one] to [game two]
+							— and that breadth of taste shows up in the systems and worlds he designs
+							today.
 						</p>
 					</article>
 
-					<article class="member-card">
-						<div class="avatar">MS</div>
-						<h3>Mira Sol</h3>
-						<p class="role">Design Lead</p>
-						<p>
-							Builds playful systems and memorable interactions that keep players invested.
+					<article class="team-card">
+						<div class="team-avatar" aria-hidden="true">BM</div>
+						<p class="team-handle">thebluegoatsings</p>
+						<h3>Brian Maier</h3>
+						<p class="team-role">B.S. in Information Technology · recent grad</p>
+						<p class="team-bio">
+							Brian is an equally avid gamer, and no game shaped him quite like
+							<strong>Red Faction</strong> — he has craved that same granular, structural
+							destruction ever since. Fresh off his bachelor's in IT, recent leaps in
+							physics engines like <strong>Box3D</strong> are what finally made it possible
+							to build the game he's always wanted — with Alex at his side.
 						</p>
 					</article>
+				</div>
 
-					<article class="member-card">
-						<div class="avatar">JL</div>
-						<h3>Jonah Lee</h3>
-						<p class="role">Technical Director</p>
-						<p>
-							Turns ambitious concepts into stable foundations and scalable product pipelines.
-						</p>
-					</article>
+				<div class="cta-row">
+					<a class="primary-button" href="/big-time">Learn about Big Time</a>
+					<a class="secondary-button" href="mailto:dev@sixdeepstudios.com">Contact us</a>
 				</div>
 			</section>
 
@@ -124,6 +140,20 @@ import CraneGame from '../components/CraneGame.astro';
 				</a>
 			</section>
 		</main>
+
+		<footer class="site-footer">
+			<div class="footer-email-block">
+				<p class="footer-label">Get in touch</p>
+				<a class="footer-email" href="mailto:dev@sixdeepstudios.com">dev@sixdeepstudios.com</a>
+			</div>
+			<nav class="footer-nav" aria-label="Footer navigation">
+				<a href="/">Home</a>
+				<a href="/big-time">Big Time</a>
+				<a href="/play-3d">3D prototype</a>
+				<a href="#about">About</a>
+			</nav>
+			<p class="footer-legal">© 2026 Six Deep Studios LLC. All rights reserved.</p>
+		</footer>
 	</div>
 </Layout>
 
@@ -352,44 +382,145 @@ import CraneGame from '../components/CraneGame.astro';
 		letter-spacing: -0.05em;
 	}
 
-	.team-grid {
-		display: grid;
-		grid-template-columns: repeat(3, minmax(0, 1fr));
-		gap: 20px;
+	.about-body {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+		gap: 24px;
+		max-width: 760px;
 	}
 
-	.member-card {
-		padding: 24px 20px;
-		border: 1px solid var(--line);
-		border-radius: 22px;
-		background: rgba(10, 18, 26, 0.75);
+	.about-body p {
+		margin: 0;
+		font-size: 1.12rem;
+		line-height: 1.7;
+		color: var(--muted);
 	}
 
-	.avatar {
-		display: grid;
-		place-items: center;
-		width: 52px;
-		height: 52px;
-		margin-bottom: 18px;
-		border-radius: 50%;
-		background: linear-gradient(135deg, rgba(114, 212, 255, 0.28), rgba(247, 179, 43, 0.24));
-		font-weight: 800;
+	.about-body strong {
 		color: var(--text);
 	}
 
-	.member-card h3 {
-		margin: 0 0 4px;
-		font-size: 1.2rem;
+	.team-grid {
+		display: grid;
+		grid-template-columns: repeat(2, 1fr);
+		gap: 20px;
+		margin-top: 40px;
 	}
 
-	.role {
-		margin: 0 0 10px;
+	.team-card {
+		display: flex;
+		flex-direction: column;
+		gap: 10px;
+		padding: 28px 24px;
+		border: 1px solid var(--line);
+		border-radius: 28px;
+		background: linear-gradient(180deg, rgba(13, 24, 34, 0.8), rgba(9, 16, 25, 0.92));
+		box-shadow: 0 20px 44px rgba(2, 5, 10, 0.35);
+	}
+
+	.team-avatar {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 60px;
+		height: 60px;
+		margin-bottom: 6px;
+		border-radius: 50%;
+		font-size: 1.15rem;
+		font-weight: 900;
+		letter-spacing: 0.04em;
+		color: #141a21;
+		background: linear-gradient(135deg, var(--accent), #ffc968);
+		box-shadow: 0 10px 22px rgba(247, 179, 43, 0.22);
+	}
+
+	.team-card:nth-child(2) .team-avatar {
+		color: #0a151d;
+		background: linear-gradient(135deg, var(--secondary), #a8d9ff);
+		box-shadow: 0 10px 22px rgba(95, 195, 255, 0.2);
+	}
+
+	.team-handle {
+		margin: 0 0 2px;
+		font-size: 0.72rem;
+		letter-spacing: 0.14em;
+		text-transform: uppercase;
 		color: var(--secondary);
-		font-weight: 700;
 	}
 
-	.member-card p:last-child {
+	.team-card h3 {
 		margin: 0;
+		font-size: 1.45rem;
+		letter-spacing: -0.02em;
+	}
+
+	.team-role {
+		margin: 2px 0 0;
+		font-size: 0.85rem;
+		color: var(--muted);
+	}
+
+	.team-bio {
+		margin: 8px 0 0;
+		font-size: 0.98rem;
+		line-height: 1.65;
+		color: var(--muted);
+	}
+
+	.team-bio strong {
+		color: var(--text);
+	}
+
+	.site-footer {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: space-between;
+		gap: 20px 32px;
+		margin-top: 72px;
+		padding-top: 28px;
+		border-top: 1px solid var(--line);
+	}
+
+	.footer-email-block {
+		display: flex;
+		flex-direction: column;
+	}
+
+	.footer-label {
+		margin: 0 0 4px;
+		font-size: 0.75rem;
+		letter-spacing: 0.16em;
+		text-transform: uppercase;
+		color: var(--muted);
+	}
+
+	.footer-email {
+		font-weight: 800;
+		font-size: 1.05rem;
+		color: var(--secondary);
+	}
+
+	.footer-email:hover {
+		color: var(--text);
+	}
+
+	.footer-nav {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 20px;
+		font-size: 0.92rem;
+		color: var(--muted);
+	}
+
+	.footer-nav a:hover {
+		color: var(--text);
+	}
+
+	.footer-legal {
+		margin: 0;
+		font-size: 0.85rem;
 		color: var(--muted);
 	}
 
