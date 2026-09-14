@@ -66,7 +66,15 @@
 	const SPOOL_R = 0.55; // spool barrel radius (m)
 	const SPOOL_HALF_W = 0.22; // half spool depth along Z
 	const SPOOL_Y = 7.4; // spool axle height at the jib tip
-	const LINK_DENSITY = 16;
+	// Link density matters far more than it looks like it should, and it is the real fix for the
+	// chain looking springy. The ball is ~474 kg; at the old value of 16 each link massed ~0.04 kg,
+	// a ~12,000:1 mass ratio the solver cannot resolve. The cost showed up as stretch: ~0.60 m of
+	// slack across the free chain at full retract (~120 mm per joint, past the ~100 mm at which
+	// adjacent links stop overlapping and a visible gap opens) plus a bouncing ball.
+	// Heavier links fix the conditioning rather than just stiffening the joints. At 100 (~0.26 kg per
+	// link, ~4.6 kg of chain against a 474 kg ball) the stretch is ~95 mm total, ~19 mm per joint -
+	// no visible gap - and the ball hangs within 0.1 m of its geometric height.
+	const LINK_DENSITY = 100;
 	const LINK_TORQUE = 6; // per-link motor keeps the free chain tidy
 	const WRAP_R = SPOOL_R + LINK_RADIUS; // spool surface radius (link centres)
 	const DELTA = LINK_PITCH / WRAP_R; // spool radians per link wound on
@@ -76,8 +84,14 @@
 	const TOTAL_LINKS = 18; // links in the chain (wound + free share these links)
 	const WIND_RATE = 4; // links wound/unwound per second (W/S)
 
-	let coil = START_COIL; // links currently wound on the spool (source of truth)
+	let coil = MIN_COIL; // wound links. The pre-wind loop below winds START_COIL on, so
+	// starting this at START_COIL as well used to leave 2xSTART_COIL links wound at load
+	// while Reset put it back to START_COIL - the two states disagreed.
 	let windFloat = START_COIL; // smoothed wound-count target driven by W/S
+	// Eased copy of `coil`, used only to place the wound links and to spin the drum.
+	// `coil` is a whole number of links so the ball height stays discrete, but the visual
+	// wrap should turn continuously instead of jumping a whole link a few times a second.
+	let coilSmooth = START_COIL;
 	let craneAngle = CRANE_START_ANGLE; // ball starts on the opposite side of the wall
 
 	// The spool centre rides the moving jib tip (A/D); the spool itself only spins.
@@ -96,6 +110,23 @@
 
 	function rotZ(a: number): b3Quat {
 		return [0, 0, Math.sin(a / 2), Math.cos(a / 2)];
+	}
+
+	function rotY(a: number): b3Quat {
+		return [0, Math.sin(a / 2), 0, Math.cos(a / 2)];
+	}
+
+	// Hamilton product: `b` is applied first, then `a`. Used to build "spin the barrel
+	// about its own axle, then yaw the whole winch with the jib" as one rotation.
+	function quatMul(a: b3Quat, b: b3Quat): b3Quat {
+		const [ax, ay, az, aw] = a;
+		const [bx, by, bz, bw] = b;
+		return [
+			aw * bx + ax * bw + ay * bz - az * by,
+			aw * by - ax * bz + ay * bw + az * bx,
+			aw * bz + ax * by - ay * bx + az * bw,
+			aw * bw - ax * bx - ay * by - az * bz,
+		];
 	}
 
 	// Bake the logo (public/logo.svg) onto a steel background matching the wall
@@ -238,11 +269,55 @@
 		}
 		scene.add(spoolVis);
 
-		// short mount from the jib tip down to the spool axle
-		const mountRod = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, JIB_Y - SPOOL_Y, 10), steelMat);
-		mountRod.position.set(JIB_LENGTH, -(JIB_Y - SPOOL_Y) / 2, 0);
-		mountRod.castShadow = true;
-		jibGroup.add(mountRod);
+		// ---- Winch mount: a bracket frame on the end of the jib carries the drum ----
+		// The drum used to dangle off a single thin post, which read as disconnected from the
+		// arm. Now a bridge plate hangs under the jib tip, two slim legs drop from it to a pair
+		// of bearing blocks, and the drum turns on the axle between them. Kept deliberately
+		// lean so it still leaves the drum's face (and the winding) readable.
+		const drumDrop = JIB_Y - SPOOL_Y; // jib tip down to the drum axle
+		const legZ = SPOOL_HALF_W + 0.13; // clear of the drum's flanges
+		const blockZ = SPOOL_HALF_W + 0.15;
+
+		// Bridge under the beam: this is what ties the whole bracket back into the jib.
+		const bridge = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.1, legZ * 2 + 0.12), steelMat);
+		bridge.position.set(JIB_LENGTH, -0.2, 0);
+		bridge.castShadow = true;
+		jibGroup.add(bridge);
+
+		// Legs: from the bridge down to the bearing blocks.
+		const legGeo = new THREE.BoxGeometry(0.26, drumDrop - 0.08, 0.12);
+		for (const side of [-1, 1]) {
+			const leg = new THREE.Mesh(legGeo, steelMat);
+			leg.position.set(JIB_LENGTH, -(drumDrop - 0.08) / 2 - 0.14, side * legZ);
+			leg.castShadow = true;
+			jibGroup.add(leg);
+		}
+
+		// Bearing blocks the axle sits in.
+		const blockGeo = new THREE.BoxGeometry(0.34, 0.34, 0.12);
+		for (const side of [-1, 1]) {
+			const block = new THREE.Mesh(blockGeo, steelMat);
+			block.position.set(JIB_LENGTH, -drumDrop, side * blockZ);
+			block.castShadow = true;
+			jibGroup.add(block);
+		}
+
+		// Local Z is the drum's spin axis (the winch shares the jib's yaw).
+		const axle = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.085, blockZ * 2 + 0.16, 14), steelMat);
+		axle.rotation.x = Math.PI / 2;
+		axle.position.set(JIB_LENGTH, -drumDrop, 0);
+		axle.castShadow = true;
+		jibGroup.add(axle);
+
+		// Accent collars on the shaft ends.
+		const collarGeo = new THREE.CylinderGeometry(0.11, 0.11, 0.07, 16);
+		for (const side of [-1, 1]) {
+			const collar = new THREE.Mesh(collarGeo, accentMat);
+			collar.rotation.x = Math.PI / 2;
+			collar.position.set(JIB_LENGTH, -drumDrop, side * (blockZ + 0.06));
+			collar.castShadow = true;
+			jibGroup.add(collar);
+		}
 
 		// ---- Physics world ----
 		const worldDef = b3.b3DefaultWorldDef();
@@ -287,12 +362,24 @@
 		b3.b3Shape_SetFilter(spoolShapeId, { categoryBits: 0n, maskBits: 0n, groupIndex: 0 }, false);
 		b3.b3DestroyHull(spoolHull);
 
-		// Current spool rotation (rad). It is animated to coil*DELTA so the newest
-		// wound link always ends at the fairlead (the free chain's exit point).
-		let spoolAng = coil * DELTA;
+		// The drum is mounted on the jib, so it always faces the way the arm points: its
+		// spin axis stays horizontal and perpendicular to the jib, and the coil wraps in the
+		// vertical plane that contains the jib.
+		function spoolYaw(): b3Quat {
+			return rotY(-craneAngle);
+		}
+
+		// The spool body is kinematic and we set its pose ourselves every frame.
+		//
+		// It is deliberately YAW ONLY: the barrel's winding spin is applied to the visual
+		// mesh instead (see the render loop). The free chain's top link is pinned to a frame
+		// on this body, so if the body itself spun with the winding it would drag the chain's
+		// exit point up and around the drum. Leaving the body unspun keeps the fairlead
+		// bolted to the bottom of the drum - the chain always leaves from the same spot -
+		// while the drum still visibly turns.
 		function setSpoolPose() {
 			const p = spoolPoint();
-			b3.b3Body_SetTransform(spoolBody, [p.x, p.y, p.z], rotZ(spoolAng));
+			b3.b3Body_SetTransform(spoolBody, [p.x, p.y, p.z], spoolYaw());
 			b3.b3Body_SetLinearVelocity(spoolBody, [0, 0, 0]);
 			b3.b3Body_SetAngularVelocity(spoolBody, [0, 0, 0]);
 		}
@@ -304,6 +391,11 @@
 		ballDef.position = [s0.x, ballYFromCoil(coil), s0.z];
 		ballDef.linearDamping = 0.2;
 		ballDef.angularDamping = 0.4;
+		// The chain and ball must never sleep. A hanging ball is motionless, so it qualifies for
+		// sleep almost immediately - and a sleeping body ignores the crane's movement entirely,
+		// which silently kills the swing. (The old, springier chain kept jittering just enough to
+		// stay awake, which masked this.) The 196 wall boxes still sleep normally.
+		ballDef.enableSleep = false;
 		const ballBody = b3.b3CreateBody(world, ballDef);
 		const ballShapeDef = b3.b3DefaultShapeDef();
 		ballShapeDef.density = 85;
@@ -339,11 +431,16 @@
 		linkBodyDef.type = b3.b3BodyType.b3_dynamicBody;
 		linkBodyDef.linearDamping = 0.04;
 		linkBodyDef.angularDamping = 0.04;
+		linkBodyDef.enableSleep = false; // see the note on ballDef.enableSleep
 
 		const linkJointDef = b3.b3DefaultSphericalJointDef();
 		linkJointDef.enableMotor = true;
 		linkJointDef.maxMotorTorque = LINK_TORQUE;
-		linkJointDef.base.constraintHertz = 200; // moderately stiff: less link stretch, still whippy
+		// Deliberately NOT softened: constraintHertz is this constraint's stiffness, and 0 would
+		// zero the position-correction bias so the ball would silently sink. Measured across
+		// 0 / 200 / 800 / 1600 Hz: 800 is the stiffest setting that stays clean (1600 jitters for
+		// no extra rigidity). With the heavier links above, the chain is taut at this value.
+		linkJointDef.base.constraintHertz = 200;
 
 		const fairY = SPOOL_Y - WRAP_R; // underside of the spool (chain exit)
 
@@ -391,11 +488,19 @@
 		// and swings. No weld joints - the driven links cannot fight the solver.
 		function driveWoundLinks() {
 			const c = spoolPoint();
+			const dirX = Math.cos(craneAngle); // the direction the jib points
+			const dirZ = Math.sin(craneAngle);
+			const yaw = spoolYaw();
 			for (let i = 0; i < coil; i += 1) {
-				const a = (coil - 1 - i) * DELTA; // world angle around the spool (newest at the bottom)
-				const x = c.x + WRAP_R * Math.sin(a);
-				const y = c.y - WRAP_R * Math.cos(a);
-				b3.b3Body_SetTransform(recs[i].id, [x, y, c.z], rotZ(a - Math.PI / 2));
+				// Angle around the barrel measured from the fairlead (straight down), taken in
+				// the vertical plane that contains the jib - so the coil tracks the arm.
+				const a = (coilSmooth - 1 - i) * DELTA;
+				const offset = WRAP_R * Math.sin(a); // displacement along the jib
+				b3.b3Body_SetTransform(
+					recs[i].id,
+					[c.x + offset * dirX, c.y - WRAP_R * Math.cos(a), c.z + offset * dirZ],
+					quatMul(yaw, rotZ(a - Math.PI / 2)),
+				);
 				b3.b3Body_SetLinearVelocity(recs[i].id, [0, 0, 0]);
 				b3.b3Body_SetAngularVelocity(recs[i].id, [0, 0, 0]);
 			}
@@ -445,9 +550,9 @@
 		// --- pre-wind START_COIL links so a coil is visible at rest ---
 		connectBoundary();
 		for (let k = 0; k < START_COIL; k += 1) windIn();
+		coilSmooth = coil;
 		driveWoundLinks();
 		hangFreeChain();
-		spoolAng = coil * DELTA;
 		setSpoolPose();
 
 		// ---- Box wall with the logo painted across the box faces ----
@@ -497,7 +602,11 @@
 			shapeDef.baseMaterial.restitution = 0;
 
 			const list: { id: b3BodyId; mesh: THREE.Mesh }[] = [];
-			const rowStagger = BOX_SPACING / 2;
+			// A quarter of the spacing, not a half. At a half, the outer box of every offset
+			// row has its centre of mass exactly on the edge of the box below it, so it topples
+			// on its own at spawn and the score reads 1 before the player touches anything.
+			// A quarter still reads as a brick offset but sits well inside the support.
+			const rowStagger = BOX_SPACING / 4;
 			const leftCenter = WALL_CX - ((WALL_COLS - 1) / 2) * BOX_SPACING;
 			const rightCenter = leftCenter + (WALL_COLS - 1) * BOX_SPACING + rowStagger;
 			const xRange = rightCenter - leftCenter;
@@ -550,10 +659,10 @@
 			// return the winch to its starting wound state
 			while (coil > START_COIL) windOut();
 			while (coil < START_COIL) windIn();
-			spoolAng = coil * DELTA;
+			windFloat = coil;
+			coilSmooth = coil;
 			setSpoolPose();
 			driveWoundLinks();
-			windFloat = coil;
 			hangFreeChain();
 
 			knocked.clear();
@@ -614,11 +723,10 @@
 
 		// ---- Loop ----
 		let lastTime = performance.now();
-		function loop(now: number) {
-			requestAnimationFrame(loop);
 
-			const dt = Math.min((now - lastTime) / 1000, 1 / 30);
-			lastTime = now;
+		// One simulation + render step. Split out from the animation frame so that timing
+		// (which the browser decides) stays separate from the work (which is deterministic).
+		function step(dt: number) {
 			if (keys.has('a')) craneAngle += ROTATE_SPEED * dt;
 			if (keys.has('d')) craneAngle -= ROTATE_SPEED * dt;
 
@@ -630,7 +738,10 @@
 			// drive the coil toward the target, one link per step
 			if (desiredCoil > coil) windIn();
 			else if (desiredCoil < coil) windOut();
-			spoolAng = coil * DELTA;
+			// Ease the wound count used for placement, so the coil and the drum turn
+			// together smoothly instead of snapping a whole link around on each step.
+			// Exponential form so the rate does not change with frame time.
+			coilSmooth += (coil - coilSmooth) * (1 - Math.exp(-dt * 14));
 			setSpoolPose();
 			driveWoundLinks();
 
@@ -639,11 +750,13 @@
 
 			b3.b3World_Step(world, dt, 28);
 
-			// sync the spool visual from the physical spool
+			// Sync the spool visual from the physical spool, then add the winding spin on top.
+			// The body is yaw-only, so the barrel's turning lives here rather than in physics.
 			b3.b3Body_GetPosition(pos, spoolBody);
 			b3.b3Body_GetRotation(rot, spoolBody);
+			const spun = quatMul([rot[0], rot[1], rot[2], rot[3]], rotZ(coilSmooth * DELTA));
 			spoolVis.position.set(pos[0], pos[1], pos[2]);
-			spoolVis.quaternion.set(rot[0], rot[1], rot[2], rot[3]);
+			spoolVis.quaternion.set(spun[0], spun[1], spun[2], spun[3]);
 
 			// sync every chain link (wound coil and free chain alike)
 			for (const link of recs) {
@@ -669,6 +782,13 @@
 
 			updateScore();
 			renderer.render(scene, camera);
+		}
+
+		function loop(now: number) {
+			requestAnimationFrame(loop);
+			const dt = Math.min((now - lastTime) / 1000, 1 / 30);
+			lastTime = now;
+			step(dt);
 		}
 
 		requestAnimationFrame(loop);

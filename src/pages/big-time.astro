@@ -1,27 +1,23 @@
 ---
 import Layout from '../layouts/Layout.astro';
+import SiteHeader from '../components/SiteHeader.astro';
+import SiteFooter from '../components/SiteFooter.astro';
+import Icon from '../components/Icon.astro';
 ---
 
-<Layout title="Big Time - Six Deep Studios">
+<Layout
+	title="Big Time"
+	description="Big Time is a physics-based superhero fighting game where the world itself becomes your weapon. Battle in fully destructible environments where every object can be grabbed, thrown and demolished in real time."
+>
 	<div class="page-shell">
-		<header class="topbar">
-			<div class="brand-block">
-				<a href="/" class="logo-link">
-					<img class="brand-mark" src="/logo.svg" alt="Six Deep Studios" width="80" height="80" />
-				</a>
-			</div>
-			<nav class="nav" aria-label="Main navigation">
-				<a href="/">Home</a>
-				<a href="/">About</a>
-				<a href="/">Steam</a>
-			</nav>
-		</header>
+		<SiteHeader current="/big-time" />
 
 		<main id="game">
 			<section class="game-hero">
 				<div class="hero-copy">
 					<p class="eyebrow">Featured game</p>
-					<h1>Big Time</h1>
+					<h1 class="display">Big Time</h1>
+					<p class="hero-sub">The world is your weapon.</p>
 					<p class="lede">
 						A physics-based superhero fighting game where the world itself becomes your weapon. 
 						Battle in fully destructible environments where every object can be grabbed, thrown, 
@@ -31,12 +27,12 @@ import Layout from '../layouts/Layout.astro';
 						<a class="primary-button" href="https://store.steampowered.com/" target="_blank" rel="noreferrer">
 							Wishlist on Steam
 						</a>
-						<a class="secondary-button" href="/">Back to home</a>
+						<a class="secondary-button" href="/#play">Play the tech demo</a>
 					</div>
 				</div>
 			</section>
 
-			<section class="game-features">
+			<section class="section reveal">
 				<div class="section-heading">
 					<p class="eyebrow">Game features</p>
 					<h2>Destruction at your fingertips</h2>
@@ -44,7 +40,7 @@ import Layout from '../layouts/Layout.astro';
 
 				<div class="features-grid">
 					<article class="feature-card">
-						<div class="feature-icon">⚡</div>
+						<div class="feature-icon"><Icon name="impact" size={26} /></div>
 						<h3>Physics-Based Combat</h3>
 						<p>
 							Every punch, kick, and collision is simulated in real-time. Master momentum, 
@@ -53,7 +49,7 @@ import Layout from '../layouts/Layout.astro';
 					</article>
 
 					<article class="feature-card">
-						<div class="feature-icon">🏢</div>
+						<div class="feature-icon"><Icon name="structure" size={26} /></div>
 						<h3>Destructible Worlds</h3>
 						<p>
 							Nothing is off-limits. Buildings crumble, streets crack, and entire environments 
@@ -62,7 +58,7 @@ import Layout from '../layouts/Layout.astro';
 					</article>
 
 					<article class="feature-card">
-						<div class="feature-icon">💥</div>
+						<div class="feature-icon"><Icon name="cube" size={26} /></div>
 						<h3>Dynamic Weapons</h3>
 						<p>
 							Grab anything in the environment—vehicles, debris, signs—and use them as weapons 
@@ -71,7 +67,7 @@ import Layout from '../layouts/Layout.astro';
 					</article>
 
 					<article class="feature-card">
-						<div class="feature-icon">🦸</div>
+						<div class="feature-icon"><Icon name="shield" size={26} /></div>
 						<h3>Superhero Combat</h3>
 						<p>
 							Face off against another superpowered combatant. Each fight is unique with emergent 
@@ -81,7 +77,7 @@ import Layout from '../layouts/Layout.astro';
 				</div>
 			</section>
 
-			<section class="game-specs">
+			<section class="section reveal">
 				<div class="section-heading">
 					<p class="eyebrow">Status</p>
 					<h2>Coming soon</h2>
@@ -107,145 +103,23 @@ import Layout from '../layouts/Layout.astro';
 				</div>
 			</section>
 		</main>
+
+		<SiteFooter />
 	</div>
 </Layout>
 
 <style>
-	.page-shell {
-		max-width: 1200px;
-		margin: 0 auto;
-		padding: 32px 24px 72px;
-	}
-
-	.topbar {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		padding: 8px 0 24px;
-	}
-
-	.brand-block {
-		display: inline-flex;
-		align-items: center;
-		gap: 12px;
-	}
-
-	.brand-mark {
-		display: block;
-		width: 80px;
-		height: 80px;
-	}
-
-	.logo-link {
-		text-decoration: none;
-		display: flex;
-		align-items: center;
-	}
-
-	.back-link:hover {
-		color: var(--text);
-	}
-
-	.nav {
-		display: flex;
-		gap: 28px;
-		font-size: 0.95rem;
-		color: var(--muted);
-	}
-
-	.nav a {
-		transition: color 0.2s ease;
-	}
-
-	.nav a:hover {
-		color: var(--text);
-	}
-
 	.game-hero {
-		display: grid;
-		grid-template-columns: 1fr;
-		align-items: center;
-		gap: 36px;
 		padding: 36px 0 48px;
 	}
 
-	.eyebrow {
-		margin: 0 0 12px;
-		font-size: 0.75rem;
-		letter-spacing: 0.16em;
-		text-transform: uppercase;
-		color: var(--secondary);
-	}
-
-	.game-hero h1 {
-		margin: 0;
-		font-size: clamp(2.9rem, 6vw, 5.2rem);
-		line-height: 0.95;
-		letter-spacing: -0.06em;
-	}
-
-	.lede {
-		max-width: 630px;
-		margin-top: 20px;
-		font-size: 1.08rem;
-		color: var(--muted);
-	}
-
-	.cta-row {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 16px;
-		margin-top: 28px;
-	}
-
-	.primary-button,
-	.secondary-button {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		min-height: 48px;
-		padding: 0 20px;
-		border-radius: 999px;
-		font-weight: 700;
-		text-decoration: none;
-		transition:
-			transform 0.2s ease,
-			box-shadow 0.2s ease,
-			border-color 0.2s ease;
-	}
-
-	.primary-button {
-		background: linear-gradient(135deg, var(--accent), #ffc968);
-		color: #141a21;
-		box-shadow: 0 18px 30px rgba(247, 179, 43, 0.25);
-	}
-
-	.secondary-button {
-		border: 1px solid rgba(154, 199, 226, 0.26);
-		background: rgba(255, 255, 255, 0.02);
-		color: var(--text);
-	}
-
-	.primary-button:hover,
-	.secondary-button:hover {
-		transform: translateY(-1px);
-	}
-
-	.section-heading {
-		margin-bottom: 32px;
-	}
-
-	.section-heading h2 {
-		margin: 0;
-		font-size: clamp(2rem, 4vw, 3rem);
-		letter-spacing: -0.05em;
-	}
-
-	.game-features,
-	.game-specs {
-		margin-top: 60px;
-		padding-top: 32px;
-		border-top: 1px solid var(--line);
+	/* Supporting line under the h1 — same treatment as the home page hero. */
+	.hero-sub {
+		margin: 14px 0 0;
+		font-size: clamp(1.05rem, 1.6vw, 1.35rem);
+		font-weight: 800;
+		letter-spacing: -0.01em;
+		color: var(--accent);
 	}
 
 	.features-grid {
@@ -255,27 +129,33 @@ import Layout from '../layouts/Layout.astro';
 	}
 
 	.feature-card {
-		padding: 24px 20px;
+		padding: 26px 22px;
 		border: 1px solid var(--line);
-		border-radius: 22px;
+		border-radius: var(--radius-md);
 		background: rgba(10, 18, 26, 0.75);
-		transition: background 0.2s ease, border-color 0.2s ease;
+		transition:
+			background 0.2s ease,
+			border-color 0.2s ease,
+			transform 0.2s ease;
 	}
 
 	.feature-card:hover {
 		background: rgba(10, 18, 26, 0.95);
 		border-color: rgba(114, 212, 255, 0.3);
+		transform: translateY(-2px);
 	}
 
+	/* Was an emoji in a gradient disc; now a bordered badge holding an SVG icon. */
 	.feature-icon {
 		display: grid;
 		place-items: center;
 		width: 52px;
 		height: 52px;
 		margin-bottom: 18px;
+		border: 1px solid rgba(114, 212, 255, 0.22);
 		border-radius: 50%;
-		background: linear-gradient(135deg, rgba(114, 212, 255, 0.28), rgba(247, 179, 43, 0.24));
-		font-size: 1.8rem;
+		color: var(--secondary);
+		background: linear-gradient(135deg, rgba(114, 212, 255, 0.2), rgba(253, 185, 19, 0.16));
 	}
 
 	.feature-card h3 {
@@ -286,7 +166,7 @@ import Layout from '../layouts/Layout.astro';
 	.feature-card p {
 		margin: 0;
 		color: var(--muted);
-		line-height: 1.5;
+		line-height: 1.55;
 	}
 
 	.specs-grid {
@@ -300,17 +180,17 @@ import Layout from '../layouts/Layout.astro';
 		flex-direction: column;
 		padding: 18px 16px;
 		border: 1px solid var(--line);
-		border-radius: 18px;
+		border-radius: var(--radius-sm);
 		background: rgba(9, 17, 24, 0.5);
 		backdrop-filter: blur(10px);
 	}
 
 	.spec-label {
+		margin-bottom: 6px;
 		font-size: 0.75rem;
 		letter-spacing: 0.16em;
 		text-transform: uppercase;
 		color: var(--secondary);
-		margin-bottom: 6px;
 	}
 
 	.spec-value {
@@ -330,22 +210,6 @@ import Layout from '../layouts/Layout.astro';
 	}
 
 	@media (max-width: 620px) {
-		.page-shell {
-			padding-left: 18px;
-			padding-right: 18px;
-		}
-
-		.topbar {
-			flex-direction: column;
-			align-items: flex-start;
-			gap: 16px;
-		}
-
-		.nav {
-			gap: 16px;
-			flex-wrap: wrap;
-		}
-
 		.specs-grid {
 			grid-template-columns: 1fr;
 		}

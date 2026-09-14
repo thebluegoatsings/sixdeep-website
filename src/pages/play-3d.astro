@@ -1,21 +1,16 @@
 ---
 import Layout from '../layouts/Layout.astro';
+import SiteHeader from '../components/SiteHeader.astro';
+import SiteFooter from '../components/SiteFooter.astro';
 import CraneGame3D from '../components/CraneGame3D.astro';
 ---
 
-<Layout title="Wrecking Ball 3D">
+<Layout
+	title="Wrecking Ball demo"
+	description="Play the Six Deep Studios physics tech demo in your browser — a wrecking-ball sandbox built on Erin Catto's Box3D and rendered with three.js."
+>
 	<div class="page-shell">
-		<header class="topbar">
-			<div class="brand-block">
-				<a href="/" class="logo-link">
-					<img class="brand-mark" src="/logo.svg" alt="Six Deep Studios" width="80" height="80" />
-				</a>
-			</div>
-			<nav class="nav" aria-label="Main navigation">
-				<a href="/">Home</a>
-				<a href="/big-time">Big Time</a>
-			</nav>
-		</header>
+		<SiteHeader current="/play-3d" />
 
 		<main id="play">
 			<section class="play-section">
@@ -24,56 +19,28 @@ import CraneGame3D from '../components/CraneGame3D.astro';
 					<h1>Box3D in action — a demo!</h1>
 				</div>
 				<p class="lede">
-					A full-screen demo of Erin Catto's Box3D physics engine, rendered with three.js —
-					a look at the real-time destruction Big Time will be built on.
+					A live demo of Erin Catto's Box3D physics engine, rendered with three.js — a look
+					at the real-time destruction Big Time will be built on. Desktop only for now: the
+					controls need a keyboard.
 				</p>
 				<CraneGame3D />
+				<p class="play-note">
+					Want the story first? <a href="/big-time">See what we're building with it</a>.
+				</p>
 			</section>
 		</main>
+
+		<SiteFooter />
 	</div>
 </Layout>
 
 <style>
+	/*
+		The demo is the entire point of this page, so it gets a wider shell than the rest of
+		the site and the canvas grows with it.
+	*/
 	.page-shell {
-		max-width: 1200px;
-		margin: 0 auto;
-		padding: 32px 24px 72px;
-	}
-
-	.topbar {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		padding: 8px 0 24px;
-	}
-
-	.brand-block {
-		display: inline-flex;
-		align-items: center;
-		gap: 12px;
-	}
-
-	.brand-mark {
-		display: block;
-		width: 80px;
-		height: 80px;
-	}
-
-	.logo-link {
-		text-decoration: none;
-		display: flex;
-		align-items: center;
-	}
-
-	.nav {
-		display: flex;
-		gap: 28px;
-		font-size: 0.95rem;
-		color: var(--muted);
-	}
-
-	.nav a:hover {
-		color: var(--text);
+		max-width: 1440px;
 	}
 
 	.play-section {
@@ -82,14 +49,6 @@ import CraneGame3D from '../components/CraneGame3D.astro';
 
 	.section-heading {
 		margin-bottom: 16px;
-	}
-
-	.eyebrow {
-		margin: 0 0 12px;
-		font-size: 0.75rem;
-		letter-spacing: 0.16em;
-		text-transform: uppercase;
-		color: var(--secondary);
 	}
 
 	.section-heading h1 {
@@ -102,25 +61,20 @@ import CraneGame3D from '../components/CraneGame3D.astro';
 	.lede {
 		max-width: 720px;
 		margin: 16px 0 0;
-		font-size: 1.08rem;
+	}
+
+	.play-note {
+		margin: 24px 0 0;
+		font-size: 0.95rem;
 		color: var(--muted);
 	}
 
-	@media (max-width: 620px) {
-		.page-shell {
-			padding-left: 18px;
-			padding-right: 18px;
-		}
+	.play-note a {
+		font-weight: 700;
+		color: var(--secondary);
+	}
 
-		.topbar {
-			flex-direction: column;
-			align-items: flex-start;
-			gap: 16px;
-		}
-
-		.nav {
-			gap: 16px;
-			flex-wrap: wrap;
-		}
+	.play-note a:hover {
+		color: var(--text);
 	}
 </style>

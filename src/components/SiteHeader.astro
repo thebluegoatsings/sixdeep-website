@@ -1,0 +1,125 @@
+---
+// Single source of truth for site navigation.
+// Every href works from any page: bare paths for routes, hash paths for home-page sections.
+interface Props {
+	/** The current route (e.g. "/big-time"), used to set aria-current on the matching link. */
+	current?: string;
+}
+
+const { current } = Astro.props;
+
+const links = [
+	{ href: '/', label: 'Home', matches: ['/'] },
+	// "Demo" covers both the home-page section and the standalone demo route.
+	{ href: '/#play', label: 'Demo', matches: ['/#play', '/play-3d'] },
+	{ href: '/big-time', label: 'Big Time', matches: ['/big-time'] },
+	{ href: '/#about', label: 'About', matches: ['/#about'] },
+	{ href: '/#steam', label: 'Steam', matches: ['/#steam'] },
+];
+
+const isCurrent = (matches: string[]) => !!current && matches.includes(current);
+---
+
+<header class="topbar">
+	<a class="brand" href="/" aria-label="Six Deep Studios — back to home">
+		<img class="brand-mark" src="/logo.svg" alt="" width="56" height="56" />
+		<span class="brand-text">
+			<span class="brand-name">Six Deep</span>
+			<span class="brand-sub">Studios</span>
+		</span>
+	</a>
+
+	<nav class="nav" aria-label="Main navigation">
+		{
+			links.map((link) => (
+				<a href={link.href} aria-current={isCurrent(link.matches) ? 'page' : undefined}>
+					{link.label}
+				</a>
+			))
+		}
+	</nav>
+</header>
+
+<style>
+	.topbar {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		gap: 20px;
+		padding: 8px 0 24px;
+	}
+
+	.brand {
+		display: inline-flex;
+		align-items: center;
+		gap: 14px;
+		border-radius: 14px;
+	}
+
+	.brand-mark {
+		width: 56px;
+		height: 56px;
+		flex: none;
+	}
+
+	.brand-text {
+		display: flex;
+		align-items: baseline;
+		gap: 7px;
+		font-size: 1rem;
+		font-weight: 900;
+		letter-spacing: 0.14em;
+		text-transform: uppercase;
+		line-height: 1.1;
+	}
+
+	.brand-sub {
+		font-weight: 700;
+		color: var(--secondary);
+	}
+
+	.nav {
+		display: flex;
+		gap: 28px;
+		font-size: 0.95rem;
+		color: var(--muted);
+	}
+
+	.nav a {
+		position: relative;
+		transition: color 0.2s ease;
+	}
+
+	.nav a:hover {
+		color: var(--text);
+	}
+
+	/* Underline marks the page you're on — the nav had no active state before. */
+	.nav a[aria-current='page'] {
+		color: var(--text);
+	}
+
+	.nav a[aria-current='page']::after {
+		content: '';
+		position: absolute;
+		left: 0;
+		right: 0;
+		bottom: -6px;
+		height: 2px;
+		border-radius: 2px;
+		background: var(--accent);
+	}
+
+	@media (max-width: 900px) {
+		.topbar {
+			flex-direction: column;
+			align-items: flex-start;
+			gap: 16px;
+		}
+
+		.nav {
+			flex-wrap: wrap;
+			gap: 14px 20px;
+		}
+	}
+</style>

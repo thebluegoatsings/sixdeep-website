@@ -1,36 +1,40 @@
 ---
+import { Picture } from 'astro:assets';
 import Layout from '../layouts/Layout.astro';
+import SiteHeader from '../components/SiteHeader.astro';
+import SiteFooter from '../components/SiteFooter.astro';
 import CraneGame3D from '../components/CraneGame3D.astro';
+import Icon from '../components/Icon.astro';
+// Imported (not referenced from /public) so Astro compresses it at build time.
+import banner from '../assets/sixdeepbanner.jpg';
 ---
 
-<Layout title="Home">
+<Layout description="Six Deep Studios LLC is an independent game studio building physics-driven, fully destructible games. Big Time, our first project, is in prototype.">
 	<div class="page-shell">
-		<header class="topbar">
-			<div class="brand-block">
-				<img class="brand-mark" src="/logo.svg" alt="Six Deep Studios" width="80" height="80" />
-			</div>
-			<nav class="nav" aria-label="Main navigation">
-				<a href="#home">Home</a>
-				<a href="/big-time">Big Time</a>
-				<a href="#play">Play demo</a>
-				<a href="#about">About</a>
-				<a href="#steam">Steam</a>
-			</nav>
-		</header>
+		<SiteHeader current="/" />
 
 		<main id="home">
 			<section class="hero">
 				<div class="hero-copy">
 					<p class="eyebrow">Independent game studio</p>
-					<h1>Building worlds <em>meant</em> to be broken. <span class="accent-text">Feel your power through dynamic, real-time destruction.</span></h1>
+					<h1 class="display">Building worlds <em>meant</em> to be broken.</h1>
+					<p class="hero-sub">Feel your power through dynamic, real-time destruction.</p>
 					<p class="lede">
 						Six Deep Studios LLC is pushing the boundaries of in-game physics and object interaction. We engineer highly reactive, fully destructible environments optimized for allowing you to unleash absolute chaos without compromising on performance.
 					</p>
 					<div class="cta-row">
-						<a class="primary-button" href="https://store.steampowered.com/" target="_blank" rel="noreferrer">
-							Steam coming soon
+						<a class="primary-button" href="#play">
+							<Icon name="play" size={18} />
+							Play the demo
 						</a>
-						<a class="secondary-button" href="#about">About the studio</a>
+						<a
+							class="secondary-button"
+							href="https://store.steampowered.com/"
+							target="_blank"
+							rel="noreferrer"
+						>
+							Steam — coming soon
+						</a>
 					</div>
 					<ul class="stat-list" aria-label="Studio highlights">
 						<li><strong>Now</strong><span>Prototype phase</span></li>
@@ -39,12 +43,40 @@ import CraneGame3D from '../components/CraneGame3D.astro';
 					</ul>
 				</div>
 
-			<div class="hero-art" aria-label="Big Time Smasher construction site with crane">
-				<img src="/sixdeepbanner.jpg" alt="Six Deep Studios Big Time construction site - The World Is Your Weapon" />
+				<div class="hero-art">
+					<Picture
+						src={banner}
+						formats={['avif', 'webp']}
+						widths={[480, 720, 1080, 1440]}
+						sizes="(max-width: 900px) 92vw, 520px"
+						alt="A construction site from Big Time, with a crane and stacked blocks — the world is your weapon."
+						loading="eager"
+						decoding="async"
+					/>
 				</div>
 			</section>
 
-			<section id="games" class="games-section">
+			<!--
+				The playable demo sits directly under the hero. It is the fastest way to show what
+				"fully destructible" actually means, so it leads rather than trailing the copy.
+			-->
+			<section id="play" class="section reveal">
+				<div class="section-heading">
+					<p class="eyebrow">Playable now — no download</p>
+					<h2>Try the tech behind Big Time</h2>
+				</div>
+				<p class="lede play-lede">
+					This is a live Box3D physics sandbox rendered with three.js — the same engine
+					that will drive Big Time's destruction. Swing the wrecking ball and flatten the
+					wall.
+				</p>
+				<CraneGame3D />
+				<div class="play-cta">
+					<a class="secondary-button" href="/play-3d">Open the standalone demo</a>
+				</div>
+			</section>
+
+			<section id="games" class="section reveal">
 				<div class="section-heading">
 					<p class="eyebrow">Featured game</p>
 					<h2>Big Time</h2>
@@ -56,27 +88,18 @@ import CraneGame3D from '../components/CraneGame3D.astro';
 							A physics-based fighting game where superheroes battle in a fully destructible world. Every object is a weapon, and the environment itself becomes part of the fight.
 						</p>
 						<div class="game-highlights">
-							<span class="highlight">Destructible Worlds</span>
-							<span class="highlight">Physics-Based Combat</span>
-							<span class="highlight">Dynamic Gameplay</span>
+							<span class="highlight"><Icon name="structure" size={18} /> Destructible worlds</span>
+							<span class="highlight"><Icon name="impact" size={18} /> Physics-based combat</span>
+							<span class="highlight"><Icon name="cube" size={18} /> Emergent gameplay</span>
 						</div>
-						<a class="secondary-button" href="/big-time">Learn more</a>
+						<div class="cta-row cta-row--tight">
+							<a class="primary-button" href="/big-time">Learn about Big Time</a>
+						</div>
 					</div>
 				</article>
 			</section>
 
-			<section id="play" class="play-section">
-				<div class="section-heading">
-					<p class="eyebrow">Tech demo</p>
-					<h2>Box3D in action — a demo!</h2>
-				</div>
-				<CraneGame3D />
-				<div class="play-cta">
-					<a class="secondary-button" href="/play-3d">Open in full screen</a>
-				</div>
-			</section>
-
-			<section id="about" class="about-section">
+			<section id="about" class="section reveal">
 				<div class="section-heading">
 					<p class="eyebrow">About us</p>
 					<h2>A small team with a big ambition.</h2>
@@ -92,18 +115,21 @@ import CraneGame3D from '../components/CraneGame3D.astro';
 					</p>
 				</div>
 
-				<!-- TODO: Fill in Alex's placeholders below: [school], [job title · years], [inspiring games] -->
+				<!--
+					TODO (before launch): Alex's card is deliberately generic until the real facts
+					are supplied. Add his job title and years, the school he studied at, and the two
+					games he names, then restore "Alex studied game development at ___."
+				-->
 				<div class="team-grid">
 					<article class="team-card">
 						<div class="team-avatar" aria-hidden="true">AB</div>
 						<p class="team-handle">AlienJim</p>
 						<h3>Alex Burton</h3>
-						<p class="team-role">[Job title] · [N]+ years</p>
+						<p class="team-role">Game design &amp; systems</p>
 						<p class="team-bio">
-							Alex studied game development at [school]. An avid gamer who loves a very
-							wide genre spread, he grew up on everything from [game one] to [game two]
-							— and that breadth of taste shows up in the systems and worlds he designs
-							today.
+							Alex is an avid gamer with a famously wide genre spread. That breadth of
+							taste shows up in the systems and worlds he designs today — the rules that
+							decide how a wall comes apart when you put a wrecking ball through it.
 						</p>
 					</article>
 
@@ -123,88 +149,48 @@ import CraneGame3D from '../components/CraneGame3D.astro';
 				</div>
 
 				<div class="cta-row">
-					<a class="primary-button" href="/big-time">Learn about Big Time</a>
 					<a class="secondary-button" href="mailto:dev@sixdeepstudios.com">Contact us</a>
 				</div>
 			</section>
 
-			<section id="steam" class="steam-panel">
-				<p class="eyebrow">Coming soon</p>
-				<h2>Our Steam storefront is in progress.</h2>
-				<p>
-					A dedicated store page is on the roadmap. Until then, this placeholder links to the broader Steam
-					marketplace while we prepare the first release.
-				</p>
-				<a class="primary-button" href="https://store.steampowered.com/" target="_blank" rel="noreferrer">
-					Visit Steam placeholder
-				</a>
+			<section id="steam" class="section steam-panel reveal">
+				<div class="steam-content">
+					<p class="eyebrow">Coming soon</p>
+					<h2>Our Steam storefront is in progress.</h2>
+					<p>
+						A dedicated store page is on the roadmap. Until then, this placeholder links
+						to the broader Steam marketplace while we prepare the first release.
+					</p>
+					<div class="cta-row">
+						<a
+							class="primary-button"
+							href="https://store.steampowered.com/"
+							target="_blank"
+							rel="noreferrer"
+						>
+							Visit Steam placeholder
+						</a>
+					</div>
+				</div>
+				<div class="steam-art">
+					<img
+						src="/under-construction-crane.svg"
+						alt=""
+						aria-hidden="true"
+						width="1200"
+						height="920"
+						loading="lazy"
+						decoding="async"
+					/>
+				</div>
 			</section>
 		</main>
 
-		<footer class="site-footer">
-			<div class="footer-email-block">
-				<p class="footer-label">Get in touch</p>
-				<a class="footer-email" href="mailto:dev@sixdeepstudios.com">dev@sixdeepstudios.com</a>
-			</div>
-			<nav class="footer-nav" aria-label="Footer navigation">
-				<a href="/">Home</a>
-				<a href="/big-time">Big Time</a>
-				<a href="/play-3d">3D prototype</a>
-				<a href="#about">About</a>
-			</nav>
-			<p class="footer-legal">© 2026 Six Deep Studios LLC. All rights reserved.</p>
-		</footer>
+		<SiteFooter />
 	</div>
 </Layout>
 
 <style>
-	.page-shell {
-		max-width: 1200px;
-		margin: 0 auto;
-		padding: 32px 24px 72px;
-	}
-
-	.topbar {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		padding: 8px 0 24px;
-	}
-
-	.brand-block {
-		display: inline-flex;
-		align-items: center;
-		gap: 12px;
-	}
-
-	.brand-mark {
-		display: block;
-		width: 80px;
-		height: 80px;
-	}
-
-	.brand-text {
-		font-size: 0.96rem;
-		letter-spacing: 0.12em;
-		text-transform: uppercase;
-		color: var(--muted);
-	}
-
-	.nav {
-		display: flex;
-		gap: 28px;
-		font-size: 0.95rem;
-		color: var(--muted);
-	}
-
-	.nav a {
-		transition: color 0.2s ease;
-	}
-
-	.nav a:hover {
-		color: var(--text);
-	}
-
 	.hero {
 		display: grid;
 		grid-template-columns: 1.05fr 0.95fr;
@@ -213,70 +199,18 @@ import CraneGame3D from '../components/CraneGame3D.astro';
 		padding: 36px 0 48px;
 	}
 
-	.eyebrow {
-		margin: 0 0 12px;
-		font-size: 0.75rem;
-		letter-spacing: 0.16em;
-		text-transform: uppercase;
-		color: var(--secondary);
-	}
-
-	.hero-copy h1 {
-		margin: 0;
-		font-size: clamp(2.9rem, 6vw, 5.2rem);
-		line-height: 0.95;
-		letter-spacing: -0.06em;
-	}
-
-	.hero-copy h1 .accent-text {
+	.hero-copy h1 em {
+		font-style: normal;
 		color: var(--accent);
-		font-size: 0.85em;
 	}
 
-	.lede {
-		max-width: 630px;
-		margin-top: 20px;
-		font-size: 1.08rem;
-		color: var(--muted);
-	}
-
-	.cta-row {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 16px;
-		margin-top: 28px;
-	}
-
-	.primary-button,
-	.secondary-button {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		min-height: 48px;
-		padding: 0 20px;
-		border-radius: 999px;
-		font-weight: 700;
-		transition:
-			transform 0.2s ease,
-			box-shadow 0.2s ease,
-			border-color 0.2s ease;
-	}
-
-	.primary-button {
-		background: linear-gradient(135deg, var(--accent), #ffc968);
-		color: #141a21;
-		box-shadow: 0 18px 30px rgba(247, 179, 43, 0.25);
-	}
-
-	.secondary-button {
-		border: 1px solid rgba(154, 199, 226, 0.26);
-		background: rgba(255, 255, 255, 0.02);
-		color: var(--text);
-	}
-
-	.primary-button:hover,
-	.secondary-button:hover {
-		transform: translateY(-1px);
+	/* The supporting headline under the h1 — big, yellow, not a full heading level. */
+	.hero-sub {
+		margin: 14px 0 0;
+		font-size: clamp(1.05rem, 1.6vw, 1.35rem);
+		font-weight: 800;
+		letter-spacing: -0.01em;
+		color: var(--accent);
 	}
 
 	.stat-list {
@@ -291,7 +225,7 @@ import CraneGame3D from '../components/CraneGame3D.astro';
 	.stat-list li {
 		padding: 18px 16px;
 		border: 1px solid var(--line);
-		border-radius: 18px;
+		border-radius: var(--radius-sm);
 		background: rgba(9, 17, 24, 0.5);
 		backdrop-filter: blur(10px);
 	}
@@ -308,27 +242,22 @@ import CraneGame3D from '../components/CraneGame3D.astro';
 	}
 
 	.hero-art {
-		position: relative;
-		padding: 18px;
+		padding: 14px;
 		border: 1px solid var(--line);
-		border-radius: 28px;
+		border-radius: var(--radius-lg);
 		background: linear-gradient(180deg, rgba(13, 24, 34, 0.82), rgba(9, 16, 25, 0.96));
-		box-shadow: 0 28px 70px rgba(2, 5, 10, 0.5);
+		box-shadow: var(--shadow-panel);
 	}
 
-	.hero-art img {
+	/* <Picture> renders its own <img>, which carries no scope class — hence :global(). */
+	.hero-art :global(img) {
 		width: 100%;
 		height: auto;
 		border-radius: 16px;
 	}
 
-	.games-section,
-	.about-section,
-	.steam-panel,
-	.play-section {
-		margin-top: 60px;
-		padding-top: 32px;
-		border-top: 1px solid var(--line);
+	.play-lede {
+		margin-bottom: 4px;
 	}
 
 	.play-cta {
@@ -336,10 +265,10 @@ import CraneGame3D from '../components/CraneGame3D.astro';
 	}
 
 	.game-feature {
-		padding: 32px 24px;
+		padding: 32px 28px;
 		border: 1px solid var(--line);
-		border-radius: 28px;
-		background: linear-gradient(135deg, rgba(114, 212, 255, 0.08), rgba(247, 179, 43, 0.06));
+		border-radius: var(--radius-lg);
+		background: linear-gradient(135deg, rgba(114, 212, 255, 0.08), rgba(253, 185, 19, 0.06));
 	}
 
 	.game-feature-content {
@@ -361,32 +290,28 @@ import CraneGame3D from '../components/CraneGame3D.astro';
 		gap: 12px;
 	}
 
+	/* Icon chips, replacing the old plain-text pills. */
 	.highlight {
-		display: inline-block;
-		padding: 8px 16px;
-		border: 1px solid rgba(114, 212, 255, 0.4);
+		display: inline-flex;
+		align-items: center;
+		gap: 9px;
+		padding: 9px 16px;
+		border: 1px solid rgba(114, 212, 255, 0.35);
 		border-radius: 999px;
-		font-size: 0.85rem;
-		color: rgba(114, 212, 255, 0.8);
-		background: rgba(114, 212, 255, 0.1);
+		font-size: 0.88rem;
+		color: #bfe6ff;
+		background: rgba(114, 212, 255, 0.09);
 	}
 
-	.section-heading {
-		margin-bottom: 24px;
+	.highlight :global(.icon) {
+		color: var(--secondary);
 	}
 
-	.section-heading h2,
-	.steam-panel h2 {
-		margin: 0;
-		font-size: clamp(2rem, 4vw, 3rem);
-		letter-spacing: -0.05em;
+	.cta-row--tight {
+		margin-top: 4px;
 	}
 
 	.about-body {
-		display: flex;
-		flex-direction: column;
-		align-items: flex-start;
-		gap: 24px;
 		max-width: 760px;
 	}
 
@@ -414,9 +339,9 @@ import CraneGame3D from '../components/CraneGame3D.astro';
 		gap: 10px;
 		padding: 28px 24px;
 		border: 1px solid var(--line);
-		border-radius: 28px;
+		border-radius: var(--radius-lg);
 		background: linear-gradient(180deg, rgba(13, 24, 34, 0.8), rgba(9, 16, 25, 0.92));
-		box-shadow: 0 20px 44px rgba(2, 5, 10, 0.35);
+		box-shadow: var(--shadow-card);
 	}
 
 	.team-avatar {
@@ -432,7 +357,7 @@ import CraneGame3D from '../components/CraneGame3D.astro';
 		letter-spacing: 0.04em;
 		color: #141a21;
 		background: linear-gradient(135deg, var(--accent), #ffc968);
-		box-shadow: 0 10px 22px rgba(247, 179, 43, 0.22);
+		box-shadow: 0 10px 22px rgba(253, 185, 19, 0.22);
 	}
 
 	.team-card:nth-child(2) .team-avatar {
@@ -472,73 +397,47 @@ import CraneGame3D from '../components/CraneGame3D.astro';
 		color: var(--text);
 	}
 
-	.site-footer {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
-		justify-content: space-between;
-		gap: 20px 32px;
-		margin-top: 72px;
-		padding-top: 28px;
-		border-top: 1px solid var(--line);
-	}
-
-	.footer-email-block {
-		display: flex;
-		flex-direction: column;
-	}
-
-	.footer-label {
-		margin: 0 0 4px;
-		font-size: 0.75rem;
-		letter-spacing: 0.16em;
-		text-transform: uppercase;
-		color: var(--muted);
-	}
-
-	.footer-email {
-		font-weight: 800;
-		font-size: 1.05rem;
-		color: var(--secondary);
-	}
-
-	.footer-email:hover {
-		color: var(--text);
-	}
-
-	.footer-nav {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 20px;
-		font-size: 0.92rem;
-		color: var(--muted);
-	}
-
-	.footer-nav a:hover {
-		color: var(--text);
-	}
-
-	.footer-legal {
-		margin: 0;
-		font-size: 0.85rem;
-		color: var(--muted);
-	}
-
+	/*
+		The under-construction crane illustration finally has a job: it frames the one
+		section that is genuinely still being built.
+	*/
 	.steam-panel {
-		display: flex;
-		flex-direction: column;
-		align-items: flex-start;
-		gap: 16px;
-		padding: 28px 24px;
+		display: grid;
+		grid-template-columns: 1.15fr 0.85fr;
+		align-items: center;
+		gap: 32px;
+		padding: 28px;
 		border: 1px solid var(--line);
-		border-radius: 28px;
+		border-radius: var(--radius-lg);
 		background: rgba(9, 17, 24, 0.8);
 	}
 
-	.steam-panel p {
+	.steam-panel h2 {
 		margin: 0;
+		font-size: clamp(1.7rem, 3.2vw, 2.5rem);
+		letter-spacing: -0.05em;
+	}
+
+	.steam-content p {
+		margin: 14px 0 0;
+		max-width: 560px;
 		color: var(--muted);
-		max-width: 720px;
+	}
+
+	.steam-content .cta-row {
+		margin-top: 24px;
+	}
+
+	.steam-art {
+		overflow: hidden;
+		border: 1px solid var(--line);
+		border-radius: var(--radius-md);
+		background: #09131c;
+	}
+
+	.steam-art img {
+		width: 100%;
+		height: auto;
 	}
 
 	@media (max-width: 900px) {
@@ -549,25 +448,13 @@ import CraneGame3D from '../components/CraneGame3D.astro';
 		.team-grid {
 			grid-template-columns: 1fr;
 		}
+
+		.steam-panel {
+			grid-template-columns: 1fr;
+		}
 	}
 
 	@media (max-width: 620px) {
-		.page-shell {
-			padding-left: 18px;
-			padding-right: 18px;
-		}
-
-		.topbar {
-			flex-direction: column;
-			align-items: flex-start;
-			gap: 16px;
-		}
-
-		.nav {
-			gap: 16px;
-			flex-wrap: wrap;
-		}
-
 		.stat-list {
 			grid-template-columns: 1fr;
 		}

@@ -1,0 +1,84 @@
+---
+// Shared site footer. Previously only the home page had one, so /big-time and /play-3d
+// were dead ends with no way onward.
+const year = new Date().getFullYear();
+
+const links = [
+	{ href: '/', label: 'Home' },
+	{ href: '/big-time', label: 'Big Time' },
+	{ href: '/#play', label: 'Play the demo' },
+	{ href: '/#about', label: 'About' },
+];
+---
+
+<footer class="site-footer">
+	<div class="footer-email-block">
+		<p class="footer-label">Get in touch</p>
+		<a class="footer-email" href="mailto:dev@sixdeepstudios.com">dev@sixdeepstudios.com</a>
+	</div>
+
+	<nav class="footer-nav" aria-label="Footer navigation">
+		{links.map((link) => <a href={link.href}>{link.label}</a>)}
+	</nav>
+
+	<p class="footer-legal">&copy; {year} Six Deep Studios LLC. All rights reserved.</p>
+</footer>
+
+<style>
+	.site-footer {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: space-between;
+		gap: 20px 32px;
+		margin-top: 72px;
+		padding-top: 28px;
+		border-top: 1px solid var(--line);
+	}
+
+	.footer-email-block {
+		display: flex;
+		flex-direction: column;
+	}
+
+	.footer-label {
+		margin: 0 0 4px;
+		font-size: 0.75rem;
+		letter-spacing: 0.16em;
+		text-transform: uppercase;
+		color: var(--muted);
+	}
+
+	.footer-email {
+		font-weight: 800;
+		font-size: 1.05rem;
+		color: var(--secondary);
+		transition: color 0.2s ease;
+	}
+
+	.footer-email:hover {
+		color: var(--text);
+	}
+
+	.footer-nav {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 20px;
+		font-size: 0.92rem;
+		color: var(--muted);
+	}
+
+	.footer-nav a {
+		transition: color 0.2s ease;
+	}
+
+	.footer-nav a:hover {
+		color: var(--text);
+	}
+
+	.footer-legal {
+		margin: 0;
+		font-size: 0.85rem;
+		color: var(--muted);
+	}
+</style>

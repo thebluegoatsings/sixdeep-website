@@ -1,0 +1,76 @@
+---
+// Inline icon set. Replaces the emoji that used to sit in the feature cards — emoji
+// render differently on every OS (and read as consumer, not engine).
+// All icons are 24x24, single-stroke, and inherit currentColor.
+interface Props {
+	name: 'impact' | 'structure' | 'cube' | 'shield' | 'play';
+	/** Rendered size in px. */
+	size?: number;
+}
+
+const { name, size = 24 } = Astro.props;
+
+// Every icon is plain path data, so rendering is a single map() — no fragments, no
+// branching in the template.
+const paths: Record<Props['name'], string[]> = {
+	// Impact burst — physics-based combat.
+	impact: [
+		'M12 2.5v3.2',
+		'M12 18.3v3.2',
+		'M2.5 12h3.2',
+		'M18.3 12h3.2',
+		'M5.3 5.3l2.3 2.3',
+		'M16.4 16.4l2.3 2.3',
+		'M18.7 5.3l-2.3 2.3',
+		'M7.6 16.4l-2.3 2.3',
+		'M8.6 12a3.4 3.4 0 1 0 6.8 0a3.4 3.4 0 1 0-6.8 0',
+	],
+	// Crumbling structure — destructible worlds.
+	structure: [
+		'M2.5 21h19',
+		'M5 21V8.5L11 4.5V21',
+		'M11 21V11l8 3v7',
+		'M7.8 12.4h.01',
+		'M7.8 16.2h.01',
+		'M15 16.8h.01',
+	],
+	// Thrown block — dynamic weapons / emergent gameplay.
+	cube: [
+		'M12 2.6l7.4 4.2v8.4L12 19.4 4.6 15.2V6.8z',
+		'M12 11l7.4-4.2',
+		'M12 11L4.6 6.8',
+		'M12 11v8.4',
+		'M19.4 19.4l2-2',
+		'M4.6 21.4l-2-2',
+	],
+	// Shield — superhero combat.
+	shield: ['M12 2.8l7.5 3v5.4c0 4.6-3.1 8.4-7.5 9.6-4.4-1.2-7.5-5-7.5-9.6V5.8z'],
+	// Play triangle.
+	play: ['M8.5 5.6l9 6.4-9 6.4z'],
+};
+
+const d = paths[name];
+---
+
+<svg
+	class="icon"
+	width={size}
+	height={size}
+	viewBox="0 0 24 24"
+	fill="none"
+	stroke="currentColor"
+	stroke-width="1.75"
+	stroke-linecap="round"
+	stroke-linejoin="round"
+	aria-hidden="true"
+	focusable="false"
+>
+	{d.map((path) => <path d={path} />)}
+</svg>
+
+<style>
+	.icon {
+		display: block;
+		flex: none;
+	}
+</style>
